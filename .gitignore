@@ -1,5 +1,6 @@
 # build directories
 build
+clangdb-sys.h
 
 # Doxygen
 html

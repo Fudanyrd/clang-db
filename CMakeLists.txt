@@ -21,6 +21,9 @@ endif()
 
 include_directories(${CLANG_INCLUDE_DIRS})
 
+# Generate amalgamation header.
+add_subdirectory(include)
+
 # third party
 add_subdirectory(3rdparty)
 
