@@ -1,0 +1,14 @@
+# build directories
+build
+
+# Doxygen
+html
+latex
+
+# temp dir
+tmp-*
+
+# .vscode (keep settings.json)
+.vscode/*
+!.vscode/settings.json
+

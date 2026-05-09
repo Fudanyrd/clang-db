@@ -1,0 +1,7 @@
+set(INSTALL_GTEST OFF)
+set(gtest_build_tests OFF)
+set(gtest_build_samples OFF)
+set(gtest_disable_pthreads ON)
+if (CLANGDB_BUILD_UNITTESTS)
+  add_subdirectory(gtest)
+endif()

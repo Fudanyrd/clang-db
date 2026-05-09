@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "*.d": "makefile",
+        "config.cmake.in": "cmake",
+        "Doxyfile": "properties",
+        ".clang-tidy": "yaml",
+        ".clang-format": "yaml"
+    }
+}

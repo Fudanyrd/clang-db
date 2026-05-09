@@ -1,0 +1,50 @@
+name: CMake Build Matrix
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {
+              name: "Ubuntu 24.04 GCC",
+              os: "self-hosted",
+              cc: "/usr/bin/gcc",
+              cxx: "/usr/bin/g++",
+              format: "/usr/bin/clang-format-15",
+            }
+          - {
+              name: "Ubuntu 24.04 Clang",
+              os: "self-hosted",
+              cc: "/usr/bin/clang-15",
+              cxx: "/usr/bin/clang++-15",
+              format: "/usr/bin/clang-format-15",
+            }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install Dependencies
+        working-directory: .
+        run: sudo sh script/ci-init.sh
+      - name: Check Formatting
+        working-directory: .
+        run: sh script/ci-format.sh
+      - name: Run Tests
+        working-directory: .
+        run: CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} sh script/ci-test.sh
+      - name: Run Clang Tidy
+        working-directory: .
+        run: sh script/ci-tidy.sh
+      - name: Check Scripts
+        working-directory: .
+        run: sh script/ci-lint-sh.sh
