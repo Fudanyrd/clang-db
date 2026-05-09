@@ -3,6 +3,7 @@ project(clang-db)
 
 # XXX: options
 option(CLANGDB_BUILD_UNITTESTS "Build unit tests" ON)
+option(CLANGDB_BUILD_TOOLS "Build tools" ON)
 
 if(DEFINED CMAKE_CXX_STANDARD)
   message(STATUS "C++ standard already set to ${CMAKE_CXX_STANDARD}")
@@ -11,6 +12,7 @@ else()
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "-fno-rtti -fno-exceptions ${CMAKE_CXX_FLAGS}")
 
 find_package(Clang REQUIRED)
 if(DEFINED CLANG_INCLUDE_DIRS)
@@ -26,6 +28,19 @@ add_subdirectory(include)
 
 # third party
 add_subdirectory(3rdparty)
+
+# library
+set(CLANGDB_PRIVATE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_subdirectory(src)
+
+# tools.
+if(CLANGDB_BUILD_TOOLS)
+  find_package(LLVM REQUIRED CONFIG)
+  find_package(Clang REQUIRED CONFIG)
+  include(AddLLVM)
+  include("${CLANG_CMAKE_DIR}/AddClang.cmake")
+  add_subdirectory(bin) # executables, plugins, etc.
+endif()
 
 # unit tests
 if (CLANGDB_BUILD_UNITTESTS)
