@@ -19,7 +19,11 @@ namespace database _CLANGDB_VISIBILITY {
 
 struct BuildVisitor;
 struct BuildDatabaseConsumer;
+struct ClassDeclVisitor; /* internal use. */
 
+/**
+ * Context for {@link BuildVisitor} and {@link BuildDatabaseConsumer}.
+ */
 struct BuildVisitorContext {
 public:
   /**
@@ -31,6 +35,7 @@ public:
 private:
   friend struct BuildVisitor;
   friend struct BuildDatabaseConsumer;
+  friend struct ClassDeclVisitor; /* internal use. */
   DatabaseInterface *DB;
 
   /**
@@ -48,16 +53,29 @@ private:
       : DB(Database), NamespaceStack(), AnonymousNamespaceCounter(0),
         CompilerContext(Ctx) {}
 
-  void EnterNamespace(NamespaceDecl *ND) {
-    assert(NamespaceStack.back() == ND->getParent() &&
+  void EnterNamespaceOrClass(DeclContext *DeclCtx, llvm::StringRef Name) {
+    auto *TopLevel = NamespaceStack.back();
+    assert(TopLevel == DeclCtx->getParent() &&
            "NamespaceDecl's parent should be the current decl context");
 
-    llvm::StringRef name = ND->getName();
-    llvm::errs() << CurrentNamespace() << " " << EncodeNs(name) << "\n";
-    NamespaceStack.push_back(ND);
+    auto CurNsWhole = CurrentNamespace();
+    auto ShortNs = EncodeNs(Name);
+    NamespaceStack.push_back(DeclCtx);
+    auto NewNsWhole = CurNsWhole + ShortNs;
+    if (dyn_cast<CXXRecordDecl>(TopLevel)) {
+      DB->InsertIntoClass(CurNsWhole, ShortNs, NewNsWhole);
+    } else {
+      DB->InsertIntoNamespace(CurNsWhole, ShortNs, NewNsWhole);
+    }
   }
 
-  void EnterClass(CXXRecordDecl *RD);
+  void EnterNamespace(NamespaceDecl *ND) {
+    EnterNamespaceOrClass(ND, ND->getName());
+  }
+
+  void EnterClass(CXXRecordDecl *RD) {
+    EnterNamespaceOrClass(RD, RD->getName());
+  }
 
   void EnterTranslationUnit(TranslationUnitDecl *TU) {
     NamespaceStack.clear(); /* clear whatever exists in the stack. */
@@ -80,6 +98,12 @@ private:
            std::to_string(AnonymousNamespaceCounter++);
   }
 
+  void PopUntilFindParent(DeclContext *Parent) {
+    while (!NamespaceStack.empty() && NamespaceStack.back() != Parent) {
+      NamespaceStack.pop_back();
+    }
+  }
+
 public:
   /**
    * Returns mangled whole name of current namespace, e.g.,
@@ -87,8 +111,18 @@ public:
    * but "" for the global namespace.
    */
   std::string CurrentNamespace() const;
+
+  DatabaseInterface &GetDatabase() const {
+    clangdb_check_internal(
+        DB != nullptr && "DatabaseInterface is not set in BuildVisitorContext");
+    return *DB;
+  }
 };
 
+/**
+ * The visitor for building the database. It traverses the AST and
+ * fills the database tables, as specified in ReadMe.
+ */
 struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
   BuildVisitor(BuildVisitorContext &Ctx) : Context(Ctx) {}
 
@@ -98,6 +132,8 @@ struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
     Context.EnterTranslationUnit(TU);
     return RecursiveASTVisitor<BuildVisitor>::TraverseTranslationUnitDecl(TU);
   }
+
+  bool TraverseCXXRecordDecl(CXXRecordDecl *RD);
 
 private:
   std::map<std::string, std::string> Typedefs;

@@ -31,6 +31,17 @@ public:
     Instance.createDiagnostics();
   }
 
+  void PrepareParsingCXX(const char *CXXCode) {
+    Invocation->getPreprocessorOpts().addRemappedFile(
+        FILE, llvm::MemoryBuffer::getMemBuffer(CXXCode).release());
+    Invocation->getFrontendOpts().Inputs.push_back(
+        clang::FrontendInputFile(FILE, clang::Language::CXX));
+    Invocation->getFrontendOpts().ProgramAction =
+        clang::frontend::ParseSyntaxOnly;
+    Invocation->getTargetOpts().Triple = TRIPLE;
+    Invocation->getLangOpts().CPlusPlus = true;
+  }
+
   ~TestHelper() = default;
 };
 

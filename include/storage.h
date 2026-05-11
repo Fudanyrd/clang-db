@@ -105,6 +105,15 @@ public:
     Namespaces.emplace_back(NamespaceName, Child, Type);
     return 0;
   }
+
+  const std::vector<std::tuple<std::string, std::string, std::string>> &
+  GetClasses() const {
+    return Classes;
+  }
+  const std::vector<std::tuple<std::string, std::string, std::string>> &
+  GetNamespaces() const {
+    return Namespaces;
+  }
 };
 
 } // namespace database _CLANGDB_VISIBILITY
