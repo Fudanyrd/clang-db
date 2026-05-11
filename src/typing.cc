@@ -3,7 +3,7 @@
 #include "clangdb.h"
 
 namespace clang {
-namespace database {
+namespace database _CLANGDB_VISIBILITY {
 
 std::string mangleType(const Type *TypePtr,
                        std::map<std::string, std::string> &Typedefs) {
@@ -88,5 +88,5 @@ std::string ManglingTypeVisitor::VisitBuiltinType(const BuiltinType *BT) {
 #undef CaseStmt
 }
 
-} /* namespace database */
+} /* namespace database _CLANGDB_VISIBILITY */
 } /* namespace clang */

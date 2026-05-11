@@ -13,4 +13,25 @@
 #define clangdb_check_internal(expr) ((void)(expr))
 #endif /* _GLIBCXX_ASSERTIONS */
 
+#include <string>
+
+#include <llvm/ADT/StringRef.h>
+
+namespace clang {
+namespace database _CLANGDB_VISIBILITY {
+
+/**
+ * Namespace/class encoding.
+ */
+inline ::std::string EncodeNs(const ::std::string &Namespace) {
+  return ::std::to_string(Namespace.size()) + Namespace;
+}
+
+inline ::std::string EncodeNs(llvm::StringRef Namespace) {
+  return ::std::to_string(Namespace.size()) + Namespace.str();
+}
+
+} /* namespace database _CLANGDB_VISIBILITY */
+} /* namespace clang */
+
 #endif /* __COMMON_H__ */

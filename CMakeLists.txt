@@ -13,6 +13,7 @@ else()
 endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "-fno-rtti -fno-exceptions ${CMAKE_CXX_FLAGS}")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Clang REQUIRED)
 if(DEFINED CLANG_INCLUDE_DIRS)
@@ -46,3 +47,15 @@ endif()
 if (CLANGDB_BUILD_UNITTESTS)
   add_subdirectory(test)
 endif()
+
+# code formatting.
+add_custom_target(format
+  COMMAND sh script/format.sh
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Running clang-format on source files..."
+)
+add_custom_target(check-format
+  COMMAND sh script/ci-format.sh
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Checking code format with clang-format..."
+)

@@ -6,9 +6,12 @@ clangdb-sys.h
 html
 latex
 
-# temp dir
+# temp dir/file
 *.bak
 tmp-*
+*.tgz
+*.txz
+*.zip
 
 # .vscode (keep settings.json)
 .vscode/*

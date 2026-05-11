@@ -1,42 +1,130 @@
 #ifndef __AST_H__
 #define __AST_H__ (1)
 
+#include <clang/AST/ASTContext.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/Type.h>
+#include <clang/Basic/Diagnostic.h>
+#include <clang/Basic/PartialDiagnostic.h>
 #include <clang/Frontend/FrontendAction.h>
 #include <memory>
+#include <stack>
 
+#include "storage.h"
 #include "typing.h"
 
 namespace clang {
 
-namespace database {
+namespace database _CLANGDB_VISIBILITY {
+
+struct BuildVisitor;
+struct BuildDatabaseConsumer;
+
+struct BuildVisitorContext {
+public:
+  /**
+   * Prefix for anonymous namespaces. The whole name of an anonymous namespace
+   * will be this prefix followed by a unique number, e.g., "_GLOBAL__N_0"
+   */
+  static constexpr char AnonymousNamespacePrefix[] = "_GLOBAL__N_";
+
+private:
+  friend struct BuildVisitor;
+  friend struct BuildDatabaseConsumer;
+  DatabaseInterface *DB;
+
+  /**
+   * For both `NamespaceDecl`, `TranslationUnitDecl`, and `CXXRecordDecl`.
+   */
+  std::vector<DeclContext *> NamespaceStack;
+
+  /**
+   * Generating unique names for anonymous namespaces.
+   */
+  size_t AnonymousNamespaceCounter;
+  ASTContext *CompilerContext;
+
+  BuildVisitorContext(DatabaseInterface *Database, ASTContext *Ctx)
+      : DB(Database), NamespaceStack(), AnonymousNamespaceCounter(0),
+        CompilerContext(Ctx) {}
+
+  void EnterNamespace(NamespaceDecl *ND) {
+    assert(NamespaceStack.back() == ND->getParent() &&
+           "NamespaceDecl's parent should be the current decl context");
+
+    llvm::StringRef name = ND->getName();
+    llvm::errs() << CurrentNamespace() << " " << EncodeNs(name) << "\n";
+    NamespaceStack.push_back(ND);
+  }
+
+  void EnterClass(CXXRecordDecl *RD);
+
+  void EnterTranslationUnit(TranslationUnitDecl *TU) {
+    NamespaceStack.clear(); /* clear whatever exists in the stack. */
+    NamespaceStack.push_back(TU);
+  }
+
+  void LeaveNamespaceOrClass() { NamespaceStack.pop_back(); }
+
+  DeclContext *CurrentDeclContext() const {
+    if (NamespaceStack.empty()) {
+      llvm::errs()
+          << "Must have at least one TransaltionUnitDecl in the stack\n";
+      assert(0);
+    }
+    return NamespaceStack.back();
+  }
+
+  std::string GetAnonymousNamespaceName() {
+    return AnonymousNamespacePrefix +
+           std::to_string(AnonymousNamespaceCounter++);
+  }
+
+public:
+  /**
+   * Returns mangled whole name of current namespace, e.g.,
+   * "3foo3bar" for "namespace foo { namespace bar { } }",
+   * but "" for the global namespace.
+   */
+  std::string CurrentNamespace() const;
+};
 
 struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
-  BuildVisitor() {}
+  BuildVisitor(BuildVisitorContext &Ctx) : Context(Ctx) {}
 
-  bool VisitType(Type *T) {
-    llvm::errs() << mangleType(T, Typedefs) << "\n";
-    return true;
+  bool TraverseNamespaceDecl(NamespaceDecl *ND);
+
+  bool TraverseTranslationUnitDecl(TranslationUnitDecl *TU) {
+    Context.EnterTranslationUnit(TU);
+    return RecursiveASTVisitor<BuildVisitor>::TraverseTranslationUnitDecl(TU);
   }
 
 private:
   std::map<std::string, std::string> Typedefs;
+  BuildVisitorContext &Context;
 };
 
 struct BuildDatabaseConsumer : public ASTConsumer {
-  BuildDatabaseConsumer() {}
+  BuildVisitorContext Context;
+  BuildDatabaseConsumer(DatabaseInterface *Database)
+      : Context(Database, nullptr) {}
 
   void HandleTranslationUnit(ASTContext &Ctx) override {
-    BuildVisitor Visitor;
+    BuildVisitor Visitor(this->Context);
+    Context.CompilerContext = &Ctx;
     Visitor.TraverseDecl(Ctx.getTranslationUnitDecl());
   }
 };
 
 struct BuildDatabaseAction : public PluginASTAction {
+  DatabaseInterface *DB;
+
+  BuildDatabaseAction(void) : DB(nullptr) {}
+  BuildDatabaseAction(DatabaseInterface &Database) : DB(&Database) {}
+
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  StringRef InFile) override {
-    return std::make_unique<BuildDatabaseConsumer>();
+    return std::make_unique<BuildDatabaseConsumer>(this->DB);
   }
 
   bool ParseArgs(const CompilerInstance &CI,
@@ -45,7 +133,7 @@ struct BuildDatabaseAction : public PluginASTAction {
   }
 };
 
-} /* namespace database */
+} /* namespace database _CLANGDB_VISIBILITY */
 
 } /* namespace clang */
 

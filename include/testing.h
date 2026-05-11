@@ -1,16 +1,16 @@
 #ifndef __TESTING_H__
 #define __TESTING_H__ (1)
 
-/**
- * Only enable this header file while testing.
- */
-#if defined GOOGLETEST_INCLUDE_GTEST_GTEST_H_
-
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/CompilerInvocation.h>
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Lex/PreprocessorOptions.h>
 #include <llvm/Support/MemoryBuffer.h>
+
+/**
+ * Only enable this header file while testing.
+ */
+#if defined GOOGLETEST_INCLUDE_GTEST_GTEST_H_
 
 namespace clang {
 
@@ -25,7 +25,7 @@ public:
       : Invocation(std::make_shared<CompilerInvocation>()), Instance() {
     Invocation = Invocation;
     Invocation->getFrontendOpts().ProgramAction = frontend::PluginAction;
-    Invocation->getTargetOpts().Triple = "x86_64-unknown-linux-gnu";
+    Invocation->getTargetOpts().Triple = TRIPLE;
 
     Instance.setInvocation(Invocation);
     Instance.createDiagnostics();

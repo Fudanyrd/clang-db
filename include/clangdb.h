@@ -6,6 +6,7 @@
 #include "common.h"
 
 #include "ast.h"
+#include "storage.h"
 #include "testing.h"
 #include "typing.h"
 
