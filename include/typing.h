@@ -32,6 +32,19 @@ inline std::string MangleFunctionTemplate(FunctionTemplateDecl &FTD) {
          MangleType(Fn->getReturnType().getTypePtr());
 }
 
+inline std::string MangleTemplateName(const TemplateName &TN) {
+  TemplateDecl *TD = TN.getAsTemplateDecl();
+  if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(TD)) {
+    return MangleClassTemplate(*CTD);
+  } else if (auto *FTD = llvm::dyn_cast<FunctionTemplateDecl>(TD)) {
+    return MangleFunctionTemplate(*FTD);
+  } else {
+    llvm::errs() << "Unknown template declaration kind: " << TD->getKind()
+                 << "\n";
+    abort();
+  }
+}
+
 struct ManglingTypeVisitor
     : public clang::TypeVisitor<ManglingTypeVisitor, std::string> {
   std::map<std::string, std::string> &Typedefs;

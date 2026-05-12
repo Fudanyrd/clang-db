@@ -100,6 +100,10 @@ std::string MangleType(const Type *TypePtr) {
     const ElaboratedType *ET = dyn_cast<const ElaboratedType>(TypePtr);
     return MangleType(ET->getNamedType().getTypePtr());
   }
+  if (dyn_cast<const TemplateSpecializationType>(TypePtr)) {
+    const auto *TST = dyn_cast<const TemplateSpecializationType>(TypePtr);
+    return "N" + MangleTemplateName(TST->getTemplateName()) + "E";
+  }
 
   /**
    * Not implemented.
