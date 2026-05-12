@@ -5,6 +5,23 @@
 namespace clang {
 namespace database _CLANGDB_VISIBILITY {
 
+std::string MangleTemplateParameterList(const TemplateParameterList &List) {
+  std::string Ret = "I";
+  /**
+   * Equals to `EncodeNs("template") + EncodeNs("typename")`.
+   */
+  static constexpr char ArgPrefix[] = "N8template8typename";
+  for (auto Param : List) {
+    if (auto *TTPD = llvm::dyn_cast<TemplateTypeParmDecl>(Param)) {
+      Ret += ArgPrefix;
+      Ret += EncodeNs(TTPD->getName());
+      Ret.push_back('E');
+    }
+  }
+  Ret.push_back('E');
+  return Ret;
+}
+
 std::string mangleType(const Type *TypePtr,
                        std::map<std::string, std::string> &Typedefs) {
   if (!TypePtr) {

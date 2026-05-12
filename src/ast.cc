@@ -7,19 +7,19 @@ namespace database _CLANGDB_VISIBILITY {
 struct ClassDeclVisitor {
 private:
   BuildVisitorContext &Context;
+  std::string WholeName;
+
+  void IterateMembers(CXXRecordDecl *RD, int Depth);
 
 public:
-  ClassDeclVisitor(BuildVisitorContext &Ctx) : Context(Ctx) {}
+  ClassDeclVisitor(BuildVisitorContext &Ctx)
+      : Context(Ctx), WholeName(Ctx.CurrentNamespace()) {}
 
   void TraverseCXXRecordDecl(CXXRecordDecl *RD, int depth = 0);
+  void TraverseClassTemplateDecl(ClassTemplateDecl *CTD, int Depth = 0);
 };
 
-void ClassDeclVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD, int depth) {
-  if (unlikely(depth >= MAX_RECURSION_DEPTH)) {
-    llvm::errs() << "Max recursion depth reached, skipping traversal of "
-                 << RD->getName() << "\n";
-    return;
-  }
+void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
   AccessSpecifier CurrentAccess =
       RD->isStruct() ? AccessSpecifier::AS_public
                      : AccessSpecifier::AS_private /* isClass() */;
@@ -48,9 +48,7 @@ void ClassDeclVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD, int depth) {
       const auto ShortName = EncodeNs(LocalClass->getName());
       const auto FullName = CurNsWholename + ShortName;
 
-      Context.EnterClass(LocalClass);
-      this->TraverseCXXRecordDecl(LocalClass, depth + 1);
-      Context.LeaveNamespaceOrClass();
+      this->TraverseCXXRecordDecl(LocalClass, Depth + 1);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
       /**
        * TODO: insert into the class table.
@@ -63,8 +61,65 @@ void ClassDeclVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD, int depth) {
       llvm::errs() << Field->getName() << "\n";
     } else if (auto *Access = llvm::dyn_cast<AccessSpecDecl>(Member)) {
       CurrentAccess = Access->getAccess();
+    } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(Member)) {
+      this->TraverseClassTemplateDecl(CTD, Depth + 1);
     }
   }
+}
+
+void ClassDeclVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD, int Depth) {
+  if (unlikely(Depth >= MAX_RECURSION_DEPTH)) {
+    llvm::errs() << "Max recursion depth reached, skipping traversal of "
+                 << RD->getName() << "\n";
+    return;
+  }
+
+  /* Mock pushing current class. */
+  std::string ShortName = EncodeNs(RD->getName());
+  size_t PrevNameLen = WholeName.size();
+  {
+    DatabaseInterface &DB = Context.GetDatabase();
+    if (Depth == 0 &&
+        dyn_cast<CXXRecordDecl>(Context.NamespaceStack.back()) == nullptr) {
+      DB.InsertIntoNamespace(WholeName, ShortName, WholeName + ShortName);
+    } else {
+      DB.InsertIntoClass(WholeName, ShortName, WholeName + ShortName);
+    }
+  }
+  WholeName += ShortName;
+
+  IterateMembers(RD, Depth);
+
+  /* Mock poping current class. */
+  WholeName.resize(PrevNameLen);
+}
+
+void ClassDeclVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD,
+                                                 int Depth) {
+  if (unlikely(Depth >= MAX_RECURSION_DEPTH)) {
+    llvm::errs() << "Max recursion depth reached, skipping traversal of "
+                 << CTD->getName() << "\n";
+    return;
+  }
+
+  CXXRecordDecl *RD = CTD->getTemplatedDecl();
+  std::string ShortName = MangleClassTemplate(*CTD);
+  size_t PrevNameLen = WholeName.size();
+  {
+    DatabaseInterface &DB = Context.GetDatabase();
+    if (Depth == 0 &&
+        dyn_cast<CXXRecordDecl>(Context.NamespaceStack.back()) == nullptr) {
+      DB.InsertIntoNamespace(WholeName, ShortName, WholeName + ShortName);
+    } else {
+      DB.InsertIntoClass(WholeName, ShortName, WholeName + ShortName);
+    }
+  }
+  WholeName += ShortName;
+
+  IterateMembers(RD, Depth);
+
+  /* Mock poping current class. */
+  WholeName.resize(PrevNameLen);
 }
 
 std::string BuildVisitorContext::CurrentNamespace() const {
@@ -114,6 +169,12 @@ bool BuildVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD) {
   ClassDeclVisitor Visitor(this->Context);
   Visitor.TraverseCXXRecordDecl(RD);
   Context.LeaveNamespaceOrClass();
+  return true;
+}
+
+bool BuildVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD) {
+  ClassDeclVisitor Visitor(this->Context);
+  Visitor.TraverseClassTemplateDecl(CTD);
   return true;
 }
 

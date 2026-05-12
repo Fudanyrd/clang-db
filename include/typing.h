@@ -16,6 +16,13 @@ namespace database _CLANGDB_VISIBILITY {
 std::string mangleType(const Type *TypePtr,
                        std::map<std::string, std::string> &Typedefs);
 
+std::string MangleTemplateParameterList(const TemplateParameterList &List);
+
+inline std::string MangleClassTemplate(ClassTemplateDecl &CTD) {
+  return EncodeNs(CTD.getTemplatedDecl()->getName()) +
+         MangleTemplateParameterList(*CTD.getTemplateParameters());
+}
+
 struct ManglingTypeVisitor
     : public clang::TypeVisitor<ManglingTypeVisitor, std::string> {
   std::map<std::string, std::string> &Typedefs;
