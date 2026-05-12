@@ -116,6 +116,16 @@ std::string MangleType(const Type *TypePtr) {
     return MangleType(PET->getPattern().getTypePtr());
   }
 
+  if (auto *UT = dyn_cast<const UsingType>(TypePtr)) {
+    return MangleType(UT->getUnderlyingType().getTypePtr());
+  }
+  if (auto *TyDefTy = dyn_cast<const TypedefType>(TypePtr)) {
+    return MangleType(TyDefTy->getDecl()->getUnderlyingType().getTypePtr());
+  }
+  if (auto *TyOfTy = dyn_cast<const TypeOfType>(TypePtr)) {
+    return MangleType(TyOfTy->getUnmodifiedType().getTypePtr());
+  }
+
   /**
    * Not implemented.
    */
