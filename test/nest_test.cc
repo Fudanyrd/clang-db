@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 
+/* Only after including gtest.h, else our TestHelper will not be defined. */
 #include <clangdb.h>
 
 namespace clang {
@@ -73,6 +74,24 @@ TEST_F(TestHelper, ClassTemplate) {
                           "3barIN8template8typename2T2EE", "6struct6public"};
   PrepareParsingCXX("template <typename T1> struct foo { template <typename "
                     "T2> struct bar; };");
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<std::tuple<std::string, std::string, std::string>> TableRows;
+  TableRows = DB.GetClasses();
+  /* There's only one tuple in the table class. */
+  ASSERT_EQ(TableRows.size(), 1);
+
+  EXPECT_EQ(std::get<0>(TableRows[0]), Tuple[0]);
+  EXPECT_EQ(std::get<1>(TableRows[0]), Tuple[1]);
+  EXPECT_EQ(std::get<2>(TableRows[0]), Tuple[2]);
+}
+
+TEST_F(TestHelper, Methods) {
+  PrepareParsingCXX("class foo { static void f(void *, ...); };");
+  const char *Tuple[3] = {"3foo", "1fPvz", "6static7private1v"};
   database::InMemoryDatabase DB;
   std::unique_ptr<FrontendAction> action =
       std::make_unique<database::BuildDatabaseAction>(DB);

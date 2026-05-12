@@ -29,7 +29,9 @@ private:
       const Type *ParamType = Iter->getTypePtr();
       ShortName += MangleType(ParamType);
     }
-    if (Proto->getNumParams() == 0) {
+    if (Proto->isVariadic()) {
+      ShortName += "z"; /* ... */
+    } else if (Proto->getNumParams() == 0) {
       ShortName += "v"; /* void */
     }
   }
