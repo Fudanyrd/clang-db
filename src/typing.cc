@@ -22,8 +22,7 @@ std::string MangleTemplateParameterList(const TemplateParameterList &List) {
   return Ret;
 }
 
-std::string MangleType(const Type *TypePtr,
-                       std::map<std::string, std::string> &Typedefs) {
+std::string MangleType(const Type *TypePtr) {
   if (!TypePtr) {
     llvm::errs() << "Error: null type pointer\n";
     abort();
@@ -74,11 +73,23 @@ std::string MangleType(const Type *TypePtr,
 
   if (dyn_cast<const PointerType>(TypePtr)) {
     const PointerType *PT = dyn_cast<const PointerType>(TypePtr);
-    return "P" + MangleType(PT->getPointeeType().getTypePtr(), Typedefs);
+    return "P" + MangleType(PT->getPointeeType().getTypePtr());
   }
-  if (dyn_cast<const ReferenceType>(TypePtr)) {
+  if (dyn_cast<const RValueReferenceType>(TypePtr)) {
     const ReferenceType *RT = dyn_cast<const ReferenceType>(TypePtr);
-    return "R" + MangleType(RT->getPointeeType().getTypePtr(), Typedefs);
+    return "O" + MangleType(RT->getPointeeType().getTypePtr());
+  }
+  if (dyn_cast<const LValueReferenceType>(TypePtr)) {
+    const ReferenceType *RT = dyn_cast<const ReferenceType>(TypePtr);
+    return "R" + MangleType(RT->getPointeeType().getTypePtr());
+  }
+  if (dyn_cast<const TemplateTypeParmType>(TypePtr)) {
+    const TemplateTypeParmType *TTP =
+        dyn_cast<const TemplateTypeParmType>(TypePtr);
+    const auto *ParamDecl = TTP->getDecl();
+    std::string ret = "N8template8typename" + EncodeNs(ParamDecl->getName());
+    ret.push_back('E');
+    return ret;
   }
 
   /**

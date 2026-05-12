@@ -59,6 +59,9 @@ inline std::string TypeofLocalCXXRecordDecl(CXXRecordDecl *RD,
   return Ret;
 }
 
+std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
+                                     AccessSpecifier Access);
+
 /**
  * Context for {@link BuildVisitor} and {@link BuildDatabaseConsumer}.
  */

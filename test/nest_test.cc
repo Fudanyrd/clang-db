@@ -88,4 +88,40 @@ TEST_F(TestHelper, ClassTemplate) {
   EXPECT_EQ(std::get<2>(TableRows[0]), Tuple[2]);
 }
 
+/**
+ * Check that template method is correctly stored in the database.
+ */
+TEST_F(TestHelper, MethodTemplate) {
+  /**
+   * <h3>member</h3>
+   * 1f: name of the method is `f';
+   * `IN8template8typename1TEE': template parameter of the method
+   *  is `template <typename T>';
+   * `i': the method returns an integer.
+   * `RN8template8typename1TE': the method accepts a single argument,
+   * of type `T &'.
+   *
+   * <h3>type: 5const9protect1i</h3>
+   * It is `const::protected::int'.
+   */
+  const char *Tuple[3] = {"3foo",
+                          "1fIN8template8typename1TEEiRN8template8typename1TE",
+                          "5const9protected1i"};
+  PrepareParsingCXX("struct foo { protected: template <typename T> int f(T&) "
+                    "const {return 0;} };");
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<std::tuple<std::string, std::string, std::string>> TableRows;
+  TableRows = DB.GetClasses();
+  /* There's only one tuple in the table class. */
+  ASSERT_EQ(TableRows.size(), 1);
+
+  EXPECT_EQ(std::get<0>(TableRows[0]), Tuple[0]);
+  EXPECT_EQ(std::get<1>(TableRows[0]), Tuple[1]);
+  EXPECT_EQ(std::get<2>(TableRows[0]), Tuple[2]);
+}
+
 } // namespace clang

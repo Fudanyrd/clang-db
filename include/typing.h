@@ -13,14 +13,20 @@ namespace clang {
 
 namespace database _CLANGDB_VISIBILITY {
 
-std::string MangleType(const Type *TypePtr,
-                       std::map<std::string, std::string> &Typedefs);
+std::string MangleType(const Type *TypePtr);
 
 std::string MangleTemplateParameterList(const TemplateParameterList &List);
 
 inline std::string MangleClassTemplate(ClassTemplateDecl &CTD) {
   return EncodeNs(CTD.getTemplatedDecl()->getName()) +
          MangleTemplateParameterList(*CTD.getTemplateParameters());
+}
+
+inline std::string MangleFunctionTemplate(FunctionTemplateDecl &FTD) {
+  FunctionDecl *Fn = FTD.getTemplatedDecl();
+  return EncodeNs(Fn->getName()) +
+         MangleTemplateParameterList(*FTD.getTemplateParameters()) +
+         MangleType(Fn->getReturnType().getTypePtr());
 }
 
 struct ManglingTypeVisitor

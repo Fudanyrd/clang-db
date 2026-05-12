@@ -1,8 +1,19 @@
 #include "clangdb.h"
 #include <iostream>
+#include <llvm/Support/Casting.h>
 
 namespace clang {
 namespace database _CLANGDB_VISIBILITY {
+
+std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
+                                     AccessSpecifier Access) {
+  std::string MangledRetTy = MangleType(Method->getReturnType().getTypePtr());
+  std::string Ret = Method->isStatic() ? "6static" : "";
+  Ret += (Method->isConst() ? "5const" : "");
+  Ret += EncodeAccessSpecifier(Access);
+  Ret += EncodeNs(MangledRetTy);
+  return Ret;
+}
 
 struct ClassDeclVisitor {
 private:
@@ -10,6 +21,18 @@ private:
   std::string WholeName;
 
   void IterateMembers(CXXRecordDecl *RD, int Depth);
+
+  static void AppendParmList(std::string &ShortName,
+                             const FunctionProtoType *Proto) {
+    for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
+         Iter++) {
+      const Type *ParamType = Iter->getTypePtr();
+      ShortName += MangleType(ParamType);
+    }
+    if (Proto->getNumParams() == 0) {
+      ShortName += "v"; /* void */
+    }
+  }
 
 public:
   ClassDeclVisitor(BuildVisitorContext &Ctx)
@@ -57,10 +80,24 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
 
       this->TraverseCXXRecordDecl(LocalClass, Depth + 1, CurrentAccess);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
-      /**
-       * TODO: insert into the class table.
-       */
-      llvm::errs() << Method->getName() << "\n";
+      std::string ShortName = EncodeNs(Method->getName());
+      const Type *MethodType = Method->getType().getTypePtr();
+      assert(dyn_cast<const FunctionType>(MethodType) != nullptr);
+      if (auto *Proto = dyn_cast<const FunctionProtoType>(MethodType)) {
+        assert(Proto != nullptr);
+        AppendParmList(ShortName, Proto);
+        Context.GetDatabase().InsertIntoClass(
+            WholeName, ShortName,
+            TypeofLocalCXXMethodDecl(Method, CurrentAccess));
+      }
+    } else if (auto *FTD = dyn_cast<FunctionTemplateDecl>(Member)) {
+      std::string ShortName = MangleFunctionTemplate(*FTD);
+      auto *Fn = FTD->getTemplatedDecl();
+      AppendParmList(ShortName, dyn_cast<const FunctionProtoType>(
+                                    Fn->getType().getTypePtr()));
+      Context.GetDatabase().InsertIntoClass(
+          WholeName, ShortName,
+          TypeofLocalCXXMethodDecl(dyn_cast<CXXMethodDecl>(Fn), CurrentAccess));
     } else if (auto *Field = llvm::dyn_cast<FieldDecl>(Member)) {
       /**
        * TODO: insert into the class table.
