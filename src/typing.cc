@@ -7,11 +7,6 @@ namespace database _CLANGDB_VISIBILITY {
 
 static std::string
 MangleTemplateTypeParmDecl(const TemplateTypeParmDecl *TTPD) {
-  /**
-   * Equals to `EncodeNs("template") + EncodeNs("typename")`.
-   */
-  static constexpr char ArgPrefix[] = "N8template8typename";
-
   std::string ret = "N8template8typename" + EncodeNs(TTPD->getName());
   if (TTPD->isParameterPack()) {
     ret += "8decltype1z";

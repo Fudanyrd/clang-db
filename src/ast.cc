@@ -127,8 +127,7 @@ void ClassDeclVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD, int Depth,
   size_t PrevNameLen = WholeName.size();
   {
     DatabaseInterface &DB = Context.GetDatabase();
-    if (Depth == 0 &&
-        dyn_cast<CXXRecordDecl>(Context.NamespaceStack.back()) == nullptr) {
+    if (Depth == 0 && !Context.TopIsCXXRecordDecl()) {
       /**
        * `RD` is in a namespace.
        */
@@ -160,8 +159,7 @@ void ClassDeclVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD,
   size_t PrevNameLen = WholeName.size();
   {
     DatabaseInterface &DB = Context.GetDatabase();
-    if (Depth == 0 &&
-        dyn_cast<CXXRecordDecl>(Context.NamespaceStack.back()) == nullptr) {
+    if (Depth == 0 && !Context.TopIsCXXRecordDecl()) {
       DB.InsertIntoNamespace(WholeName, ShortName, TypeofCXXRecordDecl(RD));
     } else {
       DB.InsertIntoClass(WholeName, ShortName,
@@ -178,6 +176,9 @@ void ClassDeclVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD,
 
 std::string BuildVisitorContext::CurrentNamespace() const {
   std::string ret = "";
+  if (TopIsCLinkage()) {
+    return "6extern";
+  }
   size_t Depth = NamespaceStack.size();
 
   for (size_t i = 1 /* skip translation unit */; i < Depth; i++) {
@@ -186,6 +187,8 @@ std::string BuildVisitorContext::CurrentNamespace() const {
       ret += EncodeNs(ND->getName());
     } else if (auto *RD = dyn_cast<CXXRecordDecl>(Ptr)) {
       ret += EncodeNs(RD->getName());
+    } else if (auto *LSD = dyn_cast<LinkageSpecDecl>(Ptr)) {
+      /* Ignored. */
     } else {
       llvm::errs() << "Unexpected decl context in namespace stack: "
                    << Ptr->getDeclKindName() << "\n";
@@ -231,6 +234,7 @@ bool BuildVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD) {
 }
 
 bool BuildVisitor::TraverseFunctionDecl(FunctionDecl *FD) {
+  Context.PopUntilFindParent(FD->getDeclContext());
   std::string ShortName = EncodeNs(FD->getName());
   const auto *Proto =
       dyn_cast<const FunctionProtoType>(FD->getType().getTypePtr());
@@ -249,6 +253,7 @@ bool BuildVisitor::TraverseFunctionDecl(FunctionDecl *FD) {
 }
 
 bool BuildVisitor::TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD) {
+  Context.PopUntilFindParent(FTD->getDeclContext());
   std::string ShortName = MangleFunctionTemplate(*FTD);
   auto *Fn = FTD->getTemplatedDecl();
   AppendParmList(ShortName,

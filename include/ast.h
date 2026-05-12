@@ -114,6 +114,18 @@ private:
     EnterNamespaceOrClass(ND, ND->getName(), "9namespace");
   }
 
+  void EnterLinkageSpecDecl(LinkageSpecDecl *LSD) {
+    NamespaceStack.push_back(LSD);
+  }
+
+  bool TopIsCXXRecordDecl() const {
+    return isa<CXXRecordDecl>(NamespaceStack.back());
+  }
+  bool TopIsCLinkage() const {
+    LinkageSpecDecl *LSD = dyn_cast<LinkageSpecDecl>(NamespaceStack.back());
+    return LSD != nullptr && LSD->getLanguage() == LinkageSpecLanguageIDs::C;
+  }
+
   void EnterClass(CXXRecordDecl *RD) {
     const char *Type = TypeofCXXRecordDecl(RD);
     EnterNamespaceOrClass(RD, RD->getName(), Type);
@@ -180,6 +192,11 @@ struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
 
   bool TraverseFunctionDecl(FunctionDecl *FD);
   bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD);
+
+  bool TraverseLinkageSpecDecl(LinkageSpecDecl *LSD) {
+    Context.EnterLinkageSpecDecl(LSD);
+    return RecursiveASTVisitor<BuildVisitor>::TraverseLinkageSpecDecl(LSD);
+  }
 
 private:
   std::map<std::string, std::string> Typedefs;
