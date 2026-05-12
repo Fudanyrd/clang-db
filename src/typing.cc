@@ -91,6 +91,15 @@ std::string MangleType(const Type *TypePtr) {
     ret.push_back('E');
     return ret;
   }
+  if (dyn_cast<RecordType>(TypePtr)) {
+    const RecordType *RT = dyn_cast<const RecordType>(TypePtr);
+    const auto *RD = RT->getDecl();
+    return "N" + MangleRecordDecl(RD) + "E";
+  }
+  if (dyn_cast<const ElaboratedType>(TypePtr)) {
+    const ElaboratedType *ET = dyn_cast<const ElaboratedType>(TypePtr);
+    return MangleType(ET->getNamedType().getTypePtr());
+  }
 
   /**
    * Not implemented.
@@ -98,6 +107,50 @@ std::string MangleType(const Type *TypePtr) {
   llvm::errs() << "Error: unhandled type kind in MangleType: "
                << TypePtr->getTypeClass() << "\n";
   abort();
+}
+
+std::string MangleRecordDecl(const TagDecl *RD) {
+  std::string ret;
+  std::vector<const DeclContext *> Nesting;
+  const DeclContext *Iter = RD->getDeclContext();
+  while (Iter) {
+    if (dyn_cast<TranslationUnitDecl>(Iter)) {
+      /* Top level of AST. */
+      break;
+    }
+    Nesting.push_back(Iter);
+    Iter = Iter->getParent();
+  }
+
+  for (auto It = Nesting.rbegin(); It != Nesting.rend(); ++It) {
+    const auto *DC = *It;
+    if (const auto *NSD = dyn_cast<NamespaceDecl>(DC)) {
+      ret += EncodeNs(NSD->getName());
+    } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
+      ret += EncodeNs(RD->getName());
+    } else {
+      llvm::errs() << "Error: unexpected decl context in MangleRecordDecl: "
+                   << DC->getDeclKindName() << "\n";
+      abort();
+    }
+  }
+  ret += EncodeNs(RD->getName());
+  return ret;
+}
+
+std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS) {
+  std::string ret;
+  if (const auto *NSD = dyn_cast<NamespaceDecl>(NNS->getAsNamespace())) {
+    ret += EncodeNs(NSD->getName());
+  } else if (const auto *RD = dyn_cast<RecordDecl>(NNS->getAsRecordDecl())) {
+    ret += EncodeNs(RD->getName());
+  } else {
+    llvm::errs()
+        << "Error: unexpected decl context in MangleNestedNameSpecifier: "
+        << NNS->getKind() << "\n";
+    abort();
+  }
+  return ret;
 }
 
 std::string ManglingTypeVisitor::VisitBuiltinType(const BuiltinType *BT) {

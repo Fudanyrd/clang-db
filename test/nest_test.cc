@@ -107,6 +107,29 @@ TEST_F(TestHelper, Methods) {
   EXPECT_EQ(std::get<2>(TableRows[0]), Tuple[2]);
 }
 
+TEST_F(TestHelper, DeclSearch) {
+  PrepareParsingCXX("namespace foo {\n"
+                    "  struct bar {};\n"
+                    "  namespace inner {\n"
+                    "    struct baz { baz *f(bar &&, ...); };\n"
+                    "  }\n}\n");
+  const char *Tuple[3] = {"3foo5inner3baz", "1fON3foo3barEz",
+                          "6public17PN3foo5inner3bazE"};
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<std::tuple<std::string, std::string, std::string>> TableRows;
+  TableRows = DB.GetClasses();
+  /* There's only one tuple in the table class. */
+  ASSERT_EQ(TableRows.size(), 1);
+
+  EXPECT_EQ(std::get<0>(TableRows[0]), Tuple[0]);
+  EXPECT_EQ(std::get<1>(TableRows[0]), Tuple[1]);
+  EXPECT_EQ(std::get<2>(TableRows[0]), Tuple[2]);
+}
+
 /**
  * Check that template method is correctly stored in the database.
  */

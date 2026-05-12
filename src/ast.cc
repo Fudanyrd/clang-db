@@ -80,6 +80,7 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       const auto ShortName = EncodeNs(LocalClass->getName());
       const auto FullName = CurNsWholename + ShortName;
 
+      assert(LocalClass->getDeclContext() == RD);
       this->TraverseCXXRecordDecl(LocalClass, Depth + 1, CurrentAccess);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
       std::string ShortName = EncodeNs(Method->getName());

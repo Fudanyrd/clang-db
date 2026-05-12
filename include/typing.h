@@ -15,6 +15,9 @@ namespace database _CLANGDB_VISIBILITY {
 
 std::string MangleType(const Type *TypePtr);
 
+std::string MangleRecordDecl(const TagDecl *RD);
+std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS);
+
 std::string MangleTemplateParameterList(const TemplateParameterList &List);
 
 inline std::string MangleClassTemplate(ClassTemplateDecl &CTD) {
