@@ -7,6 +7,8 @@
 #include <clang/Lex/PreprocessorOptions.h>
 #include <llvm/Support/MemoryBuffer.h>
 
+#include "storage.h"
+
 /**
  * Only enable this header file while testing.
  */
@@ -40,6 +42,16 @@ public:
         clang::frontend::ParseSyntaxOnly;
     Invocation->getTargetOpts().Triple = TRIPLE;
     Invocation->getLangOpts().CPlusPlus = true;
+  }
+
+  std::vector<std::tuple<std::string, std::string, std::string>> &
+  GetNamespaces(database::InMemoryDatabase &DB) {
+    return DB.Namespaces;
+  }
+
+  std::vector<std::tuple<std::string, std::string, std::string>> &
+  GetClasses(database::InMemoryDatabase &DB) {
+    return DB.Classes;
   }
 
   ~TestHelper() = default;

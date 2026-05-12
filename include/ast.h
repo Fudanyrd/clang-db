@@ -178,6 +178,9 @@ struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
   bool TraverseCXXRecordDecl(CXXRecordDecl *RD);
   bool TraverseClassTemplateDecl(ClassTemplateDecl *CTD);
 
+  bool TraverseFunctionDecl(FunctionDecl *FD);
+  bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD);
+
 private:
   std::map<std::string, std::string> Typedefs;
   BuildVisitorContext &Context;

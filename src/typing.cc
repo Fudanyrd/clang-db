@@ -5,6 +5,21 @@
 namespace clang {
 namespace database _CLANGDB_VISIBILITY {
 
+static std::string
+MangleTemplateTypeParmDecl(const TemplateTypeParmDecl *TTPD) {
+  /**
+   * Equals to `EncodeNs("template") + EncodeNs("typename")`.
+   */
+  static constexpr char ArgPrefix[] = "N8template8typename";
+
+  std::string ret = "N8template8typename" + EncodeNs(TTPD->getName());
+  if (TTPD->isParameterPack()) {
+    ret += "8decltype1z";
+  }
+  ret.push_back('E');
+  return ret;
+}
+
 std::string MangleTemplateParameterList(const TemplateParameterList &List) {
   std::string Ret = "I";
   /**
@@ -13,9 +28,7 @@ std::string MangleTemplateParameterList(const TemplateParameterList &List) {
   static constexpr char ArgPrefix[] = "N8template8typename";
   for (auto Param : List) {
     if (auto *TTPD = llvm::dyn_cast<TemplateTypeParmDecl>(Param)) {
-      Ret += ArgPrefix;
-      Ret += EncodeNs(TTPD->getName());
-      Ret.push_back('E');
+      Ret += MangleTemplateTypeParmDecl(TTPD);
     }
   }
   Ret.push_back('E');
@@ -87,9 +100,7 @@ std::string MangleType(const Type *TypePtr) {
     const TemplateTypeParmType *TTP =
         dyn_cast<const TemplateTypeParmType>(TypePtr);
     const auto *ParamDecl = TTP->getDecl();
-    std::string ret = "N8template8typename" + EncodeNs(ParamDecl->getName());
-    ret.push_back('E');
-    return ret;
+    return MangleTemplateTypeParmDecl(ParamDecl);
   }
   if (dyn_cast<RecordType>(TypePtr)) {
     const RecordType *RT = dyn_cast<const RecordType>(TypePtr);
@@ -100,9 +111,14 @@ std::string MangleType(const Type *TypePtr) {
     const ElaboratedType *ET = dyn_cast<const ElaboratedType>(TypePtr);
     return MangleType(ET->getNamedType().getTypePtr());
   }
+
   if (dyn_cast<const TemplateSpecializationType>(TypePtr)) {
     const auto *TST = dyn_cast<const TemplateSpecializationType>(TypePtr);
     return "N" + MangleTemplateName(TST->getTemplateName()) + "E";
+  }
+  if (dyn_cast<const PackExpansionType>(TypePtr)) {
+    const auto *PET = dyn_cast<const PackExpansionType>(TypePtr);
+    return MangleType(PET->getPattern().getTypePtr());
   }
 
   /**

@@ -9,6 +9,8 @@
 #include "common.h"
 
 namespace clang {
+class TestHelper; /* Make our test helper a friend. */
+
 namespace database _CLANGDB_VISIBILITY {
 
 class TableIterator {
@@ -50,6 +52,8 @@ private:
   std::vector<std::tuple<std::string, std::string, std::string>> Classes;
   std::vector<std::tuple<std::string, std::string, std::string>> Namespaces;
   bool InTransaction = false;
+
+  friend class ::clang::TestHelper;
 
 public:
   struct Iterator : public TableIterator {

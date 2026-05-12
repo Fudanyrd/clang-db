@@ -15,26 +15,26 @@ std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
   return Ret;
 }
 
+static void AppendParmList(std::string &ShortName,
+                           const FunctionProtoType *Proto) {
+  for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
+       Iter++) {
+    const Type *ParamType = Iter->getTypePtr();
+    ShortName += MangleType(ParamType);
+  }
+  if (Proto->isVariadic()) {
+    ShortName += "z"; /* ... */
+  } else if (Proto->getNumParams() == 0) {
+    ShortName += "v"; /* void */
+  }
+}
+
 struct ClassDeclVisitor {
 private:
   BuildVisitorContext &Context;
   std::string WholeName;
 
   void IterateMembers(CXXRecordDecl *RD, int Depth);
-
-  static void AppendParmList(std::string &ShortName,
-                             const FunctionProtoType *Proto) {
-    for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
-         Iter++) {
-      const Type *ParamType = Iter->getTypePtr();
-      ShortName += MangleType(ParamType);
-    }
-    if (Proto->isVariadic()) {
-      ShortName += "z"; /* ... */
-    } else if (Proto->getNumParams() == 0) {
-      ShortName += "v"; /* void */
-    }
-  }
 
 public:
   ClassDeclVisitor(BuildVisitorContext &Ctx)
@@ -227,6 +227,41 @@ bool BuildVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD) {
 bool BuildVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD) {
   ClassDeclVisitor Visitor(this->Context);
   Visitor.TraverseClassTemplateDecl(CTD);
+  return true;
+}
+
+bool BuildVisitor::TraverseFunctionDecl(FunctionDecl *FD) {
+  std::string ShortName = EncodeNs(FD->getName());
+  const auto *Proto =
+      dyn_cast<const FunctionProtoType>(FD->getType().getTypePtr());
+  assert(Proto != nullptr);
+  AppendParmList(ShortName, Proto);
+  auto *RetType = FD->getReturnType().getTypePtr();
+
+  Context.GetDatabase().InsertIntoNamespace(Context.CurrentNamespace(),
+                                            ShortName, MangleType(RetType));
+
+  /**
+   * Do not traverse into the function body, since we only care about the
+   * declaration of the function.
+   */
+  return true;
+}
+
+bool BuildVisitor::TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD) {
+  std::string ShortName = MangleFunctionTemplate(*FTD);
+  auto *Fn = FTD->getTemplatedDecl();
+  AppendParmList(ShortName,
+                 dyn_cast<const FunctionProtoType>(Fn->getType().getTypePtr()));
+  auto *RetType = Fn->getReturnType().getTypePtr();
+
+  Context.GetDatabase().InsertIntoNamespace(Context.CurrentNamespace(),
+                                            ShortName, MangleType(RetType));
+
+  /**
+   * Do not traverse into the function body, since we only care about the
+   * declaration of the function template.
+   */
   return true;
 }
 
