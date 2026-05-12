@@ -217,14 +217,21 @@ class DataMember(Type):
 
 These apply to all tables with the `type` column.
 
+<!--
+  # Changed Since b6ff0518
+  Previously the type column of a namespace or class is their wholename.
+  This is a terrible decision, because the wholename can be obtained
+  using the `name` and `member` column.
+ -->
+
 <table>
   <tr>
     <td>namespace</td>
-    <td>its whole name</td>
+    <td>The string "9namespace"</td>
   </tr>
   <tr>
     <td>class</td>
-    <td>its whole name</td>
+    <td>"5class" or "6struct" + <i>encode_ns</i>(Its Access Specifier), if a local class </td>
   </tr>
   <tr>
     <td>function</td>
@@ -232,7 +239,7 @@ These apply to all tables with the `type` column.
   </tr>
   <tr>
     <td>data member of class</td>
-    <td>its decltype</td>
+    <td>Mangled "{storage spec}::{access spec}::{mangled type}"</td>
   </tr>
   <tr>
     <td>global variable</td>
