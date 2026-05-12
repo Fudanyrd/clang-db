@@ -22,7 +22,7 @@ std::string MangleTemplateParameterList(const TemplateParameterList &List) {
   return Ret;
 }
 
-std::string mangleType(const Type *TypePtr,
+std::string MangleType(const Type *TypePtr,
                        std::map<std::string, std::string> &Typedefs) {
   if (!TypePtr) {
     llvm::errs() << "Error: null type pointer\n";
@@ -74,17 +74,17 @@ std::string mangleType(const Type *TypePtr,
 
   if (dyn_cast<const PointerType>(TypePtr)) {
     const PointerType *PT = dyn_cast<const PointerType>(TypePtr);
-    return "P" + mangleType(PT->getPointeeType().getTypePtr(), Typedefs);
+    return "P" + MangleType(PT->getPointeeType().getTypePtr(), Typedefs);
   }
   if (dyn_cast<const ReferenceType>(TypePtr)) {
     const ReferenceType *RT = dyn_cast<const ReferenceType>(TypePtr);
-    return "R" + mangleType(RT->getPointeeType().getTypePtr(), Typedefs);
+    return "R" + MangleType(RT->getPointeeType().getTypePtr(), Typedefs);
   }
 
   /**
    * Not implemented.
    */
-  llvm::errs() << "Error: unhandled type kind in mangleType: "
+  llvm::errs() << "Error: unhandled type kind in MangleType: "
                << TypePtr->getTypeClass() << "\n";
   abort();
 }

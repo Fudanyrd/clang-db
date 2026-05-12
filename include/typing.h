@@ -13,7 +13,7 @@ namespace clang {
 
 namespace database _CLANGDB_VISIBILITY {
 
-std::string mangleType(const Type *TypePtr,
+std::string MangleType(const Type *TypePtr,
                        std::map<std::string, std::string> &Typedefs);
 
 std::string MangleTemplateParameterList(const TemplateParameterList &List);

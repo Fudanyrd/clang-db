@@ -2,11 +2,13 @@
 Checks:     '
             bugprone-*,
             clang-analyzer-*,
+            llvm-*,
             modernize-*,
             performance-*,
             portability-*,
             readability-*,
             -bugprone-narrowing-conversions,
+            -bugprone-easily-swappable-parameters,
             -modernize-avoid-c-arrays,
             -modernize-use-nodiscard,
             -modernize-use-trailing-return-type,
@@ -22,5 +24,6 @@ CheckOptions:
   - { key: readability-identifier-naming.MemberCase,          value: CamelCase }
   - { key: readability-identifier-naming.NamespaceCase,       value: CamelCase }
   - { key: readability-identifier-naming.VariableCase,        value: CamelCase }
+  - { key: readability-identifier-naming.IgnoreMainLikeFunctions,     value: 1 }
 
 WarningsAsErrors: '*'

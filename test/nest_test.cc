@@ -68,4 +68,24 @@ TEST_F(TestHelper, ClassNesting) {
   }
 }
 
+TEST_F(TestHelper, ClassTemplate) {
+  const char *Tuple[3] = {"3fooIN8template8typename2T1EE",
+                          "3barIN8template8typename2T2EE", "6struct6public"};
+  PrepareParsingCXX("template <typename T1> struct foo { template <typename "
+                    "T2> struct bar; };");
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<std::tuple<std::string, std::string, std::string>> TableRows;
+  TableRows = DB.GetClasses();
+  /* There's only one tuple in the table class. */
+  ASSERT_EQ(TableRows.size(), 1);
+
+  EXPECT_EQ(std::get<0>(TableRows[0]), Tuple[0]);
+  EXPECT_EQ(std::get<1>(TableRows[0]), Tuple[1]);
+  EXPECT_EQ(std::get<2>(TableRows[0]), Tuple[2]);
+}
+
 } // namespace clang
