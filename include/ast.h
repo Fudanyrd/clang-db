@@ -123,6 +123,7 @@ private:
   }
 
   bool TopIsCXXRecordDecl() const {
+    assert(!NamespaceStack.empty() && "NamespaceStack should not be empty");
     return isa<CXXRecordDecl>(NamespaceStack.back());
   }
   bool TopIsCLinkage() const {
@@ -157,8 +158,13 @@ private:
   }
 
   void PopUntilFindParent(DeclContext *Parent) {
+    DeclContext *TranslationUnit = NamespaceStack[0];
     while (!NamespaceStack.empty() && NamespaceStack.back() != Parent) {
       NamespaceStack.pop_back();
+    }
+    if (NamespaceStack.empty()) {
+      /* Add a break point here to see what's happening. */
+      NamespaceStack.push_back(TranslationUnit);
     }
   }
 

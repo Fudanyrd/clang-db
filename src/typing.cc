@@ -136,6 +136,9 @@ std::string MangleType(const Type *TypePtr) {
   if (auto *ParenTy = dyn_cast<const ParenType>(TypePtr)) {
     return MangleType(ParenTy->getInnerType().getTypePtr());
   }
+  if (auto *AdjustTy = dyn_cast<const AdjustedType>(TypePtr)) {
+    return MangleType(AdjustTy->getAdjustedType().getTypePtr());
+  }
 
   /**
    * Not implemented.

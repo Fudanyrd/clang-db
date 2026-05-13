@@ -71,7 +71,12 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       const auto ShortName = EncodeNs(LocalClass->getName());
       const auto FullName = CurNsWholename + ShortName;
 
-      assert(LocalClass->getDeclContext() == RD);
+      if (LocalClass->getDeclContext() == RD)
+        ;
+      else {
+        RD->dump(llvm::errs());
+        assert(0);
+      }
       this->TraverseCXXRecordDecl(LocalClass, Depth + 1, CurrentAccess);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
       std::string ShortName;
@@ -200,7 +205,7 @@ bool BuildVisitor::TraverseNamespaceDecl(NamespaceDecl *ND) {
 bool BuildVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD) {
   bool isClassOrStruct = RD->isClass() || RD->isStruct();
   if (!isClassOrStruct) {
-    return RecursiveASTVisitor<BuildVisitor>::TraverseCXXRecordDecl(RD);
+    return true;
   }
 
   Context.PopUntilFindParent(RD->getDeclContext());
