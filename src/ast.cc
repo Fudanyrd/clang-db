@@ -83,7 +83,16 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       assert(LocalClass->getDeclContext() == RD);
       this->TraverseCXXRecordDecl(LocalClass, Depth + 1, CurrentAccess);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
-      std::string ShortName = EncodeNs(Method->getName());
+      std::string ShortName;
+      if (llvm::isa<CXXConstructorDecl>(Method)) {
+        ShortName = EncodeNs(RD->getName());
+        ShortName += "C"; /* constructor */
+      } else if (llvm::isa<CXXDestructorDecl>(Method)) {
+        ShortName = EncodeNs(RD->getName());
+        ShortName += "D"; /* destructor */
+      } else {
+        ShortName = EncodeNs(Method->getName());
+      }
       const Type *MethodType = Method->getType().getTypePtr();
       assert(dyn_cast<const FunctionType>(MethodType) != nullptr);
       if (auto *Proto = dyn_cast<const FunctionProtoType>(MethodType)) {

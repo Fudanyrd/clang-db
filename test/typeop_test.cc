@@ -1,3 +1,13 @@
+/**
+ * Test C/C++'s operation of types.
+ *
+ * Existing tests:
+ * <ul>
+ *   <li>using</li>
+ *   <li>typedef</li>
+ *   <li>Construtor/destructor of C++ classes</li>
+ * </ul>
+ */
 #include <gtest/gtest.h>
 
 /* Only after including gtest.h, else our TestHelper will not be defined. */
@@ -124,6 +134,41 @@ TEST_F(TestHelper, Linkage) {
   ASSERT_TRUE(Instance.ExecuteAction(*action));
 
   std::vector<TupleStrStrStr> &Actual = GetNamespaces(DB);
+  EXPECT_EQ(Actual.size(), arraysize(Expected));
+  std::sort(Actual.begin(), Actual.end());
+
+  for (size_t I = 0; I < arraysize(Expected); I++) {
+    EXPECT_EQ(std::get<0>(Actual[I]), Expected[I][0]);
+    EXPECT_EQ(std::get<1>(Actual[I]), Expected[I][1]);
+    EXPECT_EQ(std::get<2>(Actual[I]), Expected[I][2]);
+  }
+}
+
+TEST_F(TestHelper, RAII) {
+  PrepareParsingCXX("struct foo {\n"
+                    "  foo();\n"
+                    "  foo(int);\n"
+                    "  ~foo();\n"
+                    "};");
+
+  /**
+   * Whole mangled name for `foo::foo()' is `_ZN3fooCEv',
+   * the same rule applies to destructor `D'.
+   *
+   * (const type is marked with `K').
+   */
+  const char *Expected[][3] = {
+      {"3foo", "3fooCi", "6public1v"}, /* foo::foo(int) */
+      {"3foo", "3fooCv", "6public1v"}, /* foo::foo() */
+      {"3foo", "3fooDv", "6public1v"}, /* foo::~foo() */
+  };
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<TupleStrStrStr> &Actual = GetClasses(DB);
   EXPECT_EQ(Actual.size(), arraysize(Expected));
   std::sort(Actual.begin(), Actual.end());
 
