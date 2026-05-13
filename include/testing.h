@@ -42,6 +42,7 @@ public:
         clang::frontend::ParseSyntaxOnly;
     Invocation->getTargetOpts().Triple = TRIPLE;
     Invocation->getLangOpts().CPlusPlus = true;
+    Invocation->getLangOpts().CPlusPlus11 = true;
   }
 
   std::vector<std::tuple<std::string, std::string, std::string>> &

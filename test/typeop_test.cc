@@ -179,4 +179,33 @@ TEST_F(TestHelper, RAII) {
   }
 }
 
+TEST_F(TestHelper, CopyAndMove) {
+  PrepareParsingCXX("struct foo {\n"
+                    "  foo &operator=(foo&);\n"
+                    "  foo &operator=(foo&&);\n"
+                    "  foo(foo &); \n"
+                    "};");
+
+  const char *Expected[][3] = {
+      {"3foo", "3fooCRN3fooE", "6public1v"},        /* foo::foo(foo&) */
+      {"3foo", "3fooaSON3fooE", "6public7RN3fooE"}, /* foo::operator=(foo&) */
+      {"3foo", "3fooaSRN3fooE", "6public7RN3fooE"}, /* foo::operator=(foo&&) */
+  };
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<TupleStrStrStr> &Actual = GetClasses(DB);
+  EXPECT_EQ(Actual.size(), arraysize(Expected));
+  std::sort(Actual.begin(), Actual.end());
+
+  for (size_t I = 0; I < arraysize(Expected); I++) {
+    EXPECT_EQ(std::get<0>(Actual[I]), Expected[I][0]);
+    EXPECT_EQ(std::get<1>(Actual[I]), Expected[I][1]);
+    EXPECT_EQ(std::get<2>(Actual[I]), Expected[I][2]);
+  }
+}
+
 } /* namespace clang */

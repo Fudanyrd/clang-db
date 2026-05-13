@@ -90,6 +90,10 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       } else if (llvm::isa<CXXDestructorDecl>(Method)) {
         ShortName = EncodeNs(RD->getName());
         ShortName += "D"; /* destructor */
+      } else if (Method->isCopyAssignmentOperator() ||
+                 Method->isMoveAssignmentOperator()) {
+        ShortName = EncodeNs(RD->getName());
+        ShortName += "aS"; /* assignment operator */
       } else {
         ShortName = EncodeNs(Method->getName());
       }
