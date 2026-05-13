@@ -66,4 +66,33 @@ TEST_F(TestHelper, CXXLinkage) {
   }
 }
 
+/**
+ * Commit 33ae90cf has a bug -- `MangleRecordDecl` does not
+ * handle `LinkageSpecDecl` => assertion failure.
+ */
+TEST_F(TestHelper, RecordSearch) {
+  PrepareParsingCXX("extern \"C\" { struct point { float x, y; }; }\n"
+                    "point fn(point *);\n");
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  const char *Expected[][3] = {
+      {"", "2fnPN6extern5pointE", "N6extern5pointE"}, /* fn */
+      {"6extern", "5point", "6struct"},               /* struct point */
+  };
+  std::vector<TupleStrStrStr> &Actual = GetNamespaces(DB);
+  std::sort(Actual.begin(), Actual.end());
+
+  const size_t ExpectedSize = arraysize(Expected);
+  EXPECT_EQ(Actual.size(), ExpectedSize);
+  for (size_t I = 0; I < ExpectedSize; I++) {
+    EXPECT_EQ(std::get<0>(Actual[I]), Expected[I][0]);
+    EXPECT_EQ(std::get<1>(Actual[I]), Expected[I][1]);
+    EXPECT_EQ(std::get<2>(Actual[I]), Expected[I][2]);
+  }
+}
+
 } /* namespace clang */

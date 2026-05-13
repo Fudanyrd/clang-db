@@ -188,28 +188,8 @@ void ClassDeclVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD,
 }
 
 std::string BuildVisitorContext::CurrentNamespace() const {
-  std::string ret = "";
-  if (TopIsCLinkage()) {
-    return "6extern";
-  }
-  size_t Depth = NamespaceStack.size();
-
-  for (size_t i = 1 /* skip translation unit */; i < Depth; i++) {
-    auto *Ptr = NamespaceStack[i];
-    if (auto *ND = dyn_cast<NamespaceDecl>(Ptr)) {
-      ret += EncodeNs(ND->getName());
-    } else if (auto *RD = dyn_cast<CXXRecordDecl>(Ptr)) {
-      ret += EncodeNs(RD->getName());
-    } else if (auto *LSD = dyn_cast<LinkageSpecDecl>(Ptr)) {
-      /* Ignored. */
-    } else {
-      llvm::errs() << "Unexpected decl context in namespace stack: "
-                   << Ptr->getDeclKindName() << "\n";
-      assert(0);
-    }
-  }
-
-  return ret;
+  return MangleNamespaceStack(NamespaceStack, 1
+                              /* Skip translation unit decl. */);
 }
 
 bool BuildVisitor::TraverseNamespaceDecl(NamespaceDecl *ND) {

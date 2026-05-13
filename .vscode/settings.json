@@ -1,4 +1,5 @@
 {
+    "editor.indentSize": 2,
     "files.associations": {
         "*.d": "makefile",
         "config.cmake.in": "cmake",

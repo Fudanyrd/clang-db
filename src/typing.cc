@@ -134,31 +134,53 @@ std::string MangleType(const Type *TypePtr) {
   abort();
 }
 
+std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
+                                 size_t StartIdx) {
+  std::string ret = "";
+
+  /* Top is C Linkage. */
+  if (Nesting.empty()) {
+    return ret;
+  }
+  if (const auto *LSD = dyn_cast<LinkageSpecDecl>(Nesting.back())) {
+    if (LSD->getLanguage() == LinkageSpecLanguageIDs::C) {
+      return "6extern";
+    }
+  }
+
+  const size_t Depth = Nesting.size();
+  for (; StartIdx < Depth; StartIdx += 1) {
+    const auto *Ptr = Nesting[StartIdx];
+    if (auto *ND = dyn_cast<const NamespaceDecl>(Ptr)) {
+      ret += EncodeNs(ND->getName());
+    } else if (auto *RD = dyn_cast<const CXXRecordDecl>(Ptr)) {
+      ret += EncodeNs(RD->getName());
+    } else if (auto *LSD = dyn_cast<const LinkageSpecDecl>(Ptr)) {
+      /* Ignored. */
+    } else {
+      llvm::errs() << "Unexpected decl context in namespace stack: "
+                   << Ptr->getDeclKindName() << "\n";
+      assert(0);
+    }
+  }
+
+  return ret;
+}
+
 std::string MangleRecordDecl(const TagDecl *RD) {
-  std::string ret;
-  std::vector<const DeclContext *> Nesting;
+  std::vector<DeclContext *> Nesting;
   const DeclContext *Iter = RD->getDeclContext();
   while (Iter) {
     if (dyn_cast<TranslationUnitDecl>(Iter)) {
       /* Top level of AST. */
       break;
     }
-    Nesting.push_back(Iter);
+    Nesting.push_back(const_cast<DeclContext *>(Iter));
     Iter = Iter->getParent();
   }
 
-  for (auto It = Nesting.rbegin(); It != Nesting.rend(); ++It) {
-    const auto *DC = *It;
-    if (const auto *NSD = dyn_cast<NamespaceDecl>(DC)) {
-      ret += EncodeNs(NSD->getName());
-    } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
-      ret += EncodeNs(RD->getName());
-    } else {
-      llvm::errs() << "Error: unexpected decl context in MangleRecordDecl: "
-                   << DC->getDeclKindName() << "\n";
-      abort();
-    }
-  }
+  std::reverse(Nesting.begin(), Nesting.end());
+  std::string ret = MangleNamespaceStack(Nesting);
   ret += EncodeNs(RD->getName());
   return ret;
 }

@@ -20,6 +20,9 @@ std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS);
 
 std::string MangleTemplateParameterList(const TemplateParameterList &List);
 
+std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
+                                 size_t StartIdx = 0);
+
 inline std::string MangleClassTemplate(ClassTemplateDecl &CTD) {
   return EncodeNs(CTD.getTemplatedDecl()->getName()) +
          MangleTemplateParameterList(*CTD.getTemplateParameters());
