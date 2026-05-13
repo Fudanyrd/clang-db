@@ -139,6 +139,9 @@ std::string MangleType(const Type *TypePtr) {
   if (auto *AdjustTy = dyn_cast<const AdjustedType>(TypePtr)) {
     return MangleType(AdjustTy->getAdjustedType().getTypePtr());
   }
+  if (auto *DeclTy = dyn_cast<const DecltypeType>(TypePtr)) {
+    return MangleType(DeclTy->getUnderlyingType().getTypePtr());
+  }
 
   /**
    * Not implemented.
