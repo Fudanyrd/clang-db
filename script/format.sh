@@ -9,7 +9,7 @@ do_fmt() {
 }
 
 # shellcheck disable=SC2043
-for srcdir in include src test; do
+for srcdir in include src test bin; do
   cd "$srcdir"
   do_fmt
   cd ..

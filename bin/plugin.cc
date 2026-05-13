@@ -8,4 +8,4 @@
 
 using namespace clang;
 static FrontendPluginRegistry::Add<clang::database::BuildDatabaseAction>
-X("build-db", "build symbol database");
+    X("build-db", "build symbol database");

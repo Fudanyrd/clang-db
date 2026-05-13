@@ -9,7 +9,7 @@ do_check() {
     xargs -0 clang-format --style="file:$config_file" --dry-run --Werror
 }
 
-for srcdir in include src test; do
+for srcdir in include src test bin; do
   cd "$srcdir"
   do_check
   cd ..
