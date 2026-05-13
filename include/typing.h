@@ -18,6 +18,8 @@ std::string MangleType(const Type *TypePtr);
 std::string MangleRecordDecl(const TagDecl *RD);
 std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS);
 
+void MangleFunctionParmList(std::string &Dest, const FunctionProtoType *Proto);
+
 std::string MangleTemplateParameterList(const TemplateParameterList &List);
 
 std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,

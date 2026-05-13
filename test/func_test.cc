@@ -42,6 +42,28 @@ TEST_F(TestHelper, GlobalFunction) {
   }
 }
 
+TEST_F(TestHelper, FunctionPointer) {
+  PrepareParsingCXX("int fn(int (*g)(void));");
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  const char *ExpectedTuple[3] = {
+      "",
+      "2fnPFivE",
+      "i" /* return type */,
+  };
+  std::vector<TupleStrStrStr> &Actual = GetNamespaces(DB);
+  EXPECT_EQ(Actual.size(), 1U);
+
+  {
+    EXPECT_EQ(std::get<0>(Actual[0]), ExpectedTuple[0]);
+    EXPECT_EQ(std::get<1>(Actual[0]), ExpectedTuple[1]);
+    EXPECT_EQ(std::get<2>(Actual[0]), ExpectedTuple[2]);
+  }
+}
+
 TEST_F(TestHelper, TemplatePackExpand) {
   PrepareParsingCXX("template <typename ...Args>\n"
                     "void fn(Args& ...args, Args* ...argsPtr, int);");

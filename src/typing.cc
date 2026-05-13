@@ -125,6 +125,17 @@ std::string MangleType(const Type *TypePtr) {
   if (auto *TyOfTy = dyn_cast<const TypeOfType>(TypePtr)) {
     return MangleType(TyOfTy->getUnmodifiedType().getTypePtr());
   }
+  if (auto *FuncTy = dyn_cast<const FunctionProtoType>(TypePtr)) {
+    const auto *FT = FuncTy;
+    std::string Ret = "F";
+    Ret += MangleType(FT->getReturnType().getTypePtr());
+    MangleFunctionParmList(Ret, FT);
+    Ret.push_back('E');
+    return Ret;
+  }
+  if (auto *ParenTy = dyn_cast<const ParenType>(TypePtr)) {
+    return MangleType(ParenTy->getInnerType().getTypePtr());
+  }
 
   /**
    * Not implemented.
@@ -214,6 +225,19 @@ std::string ManglingTypeVisitor::VisitBuiltinType(const BuiltinType *BT) {
     }
   }
 #undef CaseStmt
+}
+
+void MangleFunctionParmList(std::string &Dest, const FunctionProtoType *Proto) {
+  for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
+       Iter++) {
+    const Type *ParamType = Iter->getTypePtr();
+    Dest += MangleType(ParamType);
+  }
+  if (Proto->isVariadic()) {
+    Dest += "z"; /* ... */
+  } else if (Proto->getNumParams() == 0) {
+    Dest += "v"; /* void */
+  }
 }
 
 } /* namespace database _CLANGDB_VISIBILITY */

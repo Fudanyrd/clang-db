@@ -32,6 +32,10 @@ inline const char *TypeofCXXRecordDecl(CXXRecordDecl *RD) {
     Type = "6struct";
   } else if (RD->isClass()) {
     Type = "5class";
+  } else if (RD->isUnion()) {
+    Type = "5union";
+  } else if (RD->isEnum()) {
+    Type = "4enum";
   } else {
     llvm_unreachable("Unknown CXXRecordDecl kind");
   }

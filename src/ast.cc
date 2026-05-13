@@ -17,16 +17,7 @@ std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
 
 static void AppendParmList(std::string &ShortName,
                            const FunctionProtoType *Proto) {
-  for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
-       Iter++) {
-    const Type *ParamType = Iter->getTypePtr();
-    ShortName += MangleType(ParamType);
-  }
-  if (Proto->isVariadic()) {
-    ShortName += "z"; /* ... */
-  } else if (Proto->getNumParams() == 0) {
-    ShortName += "v"; /* void */
-  }
+  MangleFunctionParmList(ShortName, Proto);
 }
 
 struct ClassDeclVisitor {
