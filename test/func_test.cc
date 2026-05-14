@@ -90,4 +90,62 @@ TEST_F(TestHelper, TemplatePackExpand) {
   }
 }
 
+TEST_F(TestHelper, OverloadedOperator) {
+  PrepareParsingCXX("struct Int {\n"
+                    "  Int &operator+=(Int &Other);\n"
+                    "};\n"
+                    "Int operator+(Int &LHS, Int &RHS);");
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  const char *ClassRecord[3] = {"3Int", "pLRN3IntE", "6public7RN3IntE"};
+  const char *GlobalRecord[3] = {"", "plRN3IntERN3IntE", "N3IntE"};
+  {
+    auto &Actual = GetClasses(DB);
+    ASSERT_TRUE(Actual.size() == 1U);
+    EXPECT_EQ(std::get<0>(Actual[0]), ClassRecord[0]);
+    EXPECT_EQ(std::get<1>(Actual[0]), ClassRecord[1]);
+    EXPECT_EQ(std::get<2>(Actual[0]), ClassRecord[2]);
+  }
+  {
+    auto &Actual = GetNamespaces(DB);
+    ASSERT_TRUE(Actual.size() == 2U);
+    EXPECT_EQ(std::get<0>(Actual[1]), GlobalRecord[0]);
+    EXPECT_EQ(std::get<1>(Actual[1]), GlobalRecord[1]);
+    EXPECT_EQ(std::get<2>(Actual[1]), GlobalRecord[2]);
+  }
+}
+
+TEST_F(TestHelper, TemplateOverloadedOperator) {
+  PrepareParsingCXX("struct Int {\n"
+                    "  Int &operator+=(Int &Other);\n"
+                    "};\n"
+                    "template <typename T>\n"
+                    "Int operator+(T num, Int &RHS);");
+
+  const char *GlobalRecord[3] = {
+      "",
+      "pl"                       /* operator + */
+      "IN8template8typename1TEE" /* template <typename T> */
+      "N3IntE"                   /* returns Int */
+      "N8template8typename1TE"   /* first parameter T */
+      "RN3IntE",                 /* second parameter Int& */
+      "N3IntE"};
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+  {
+    auto &Actual = GetNamespaces(DB);
+    ASSERT_TRUE(Actual.size() == 2U);
+    EXPECT_EQ(std::get<0>(Actual[1]), GlobalRecord[0]);
+    EXPECT_EQ(std::get<1>(Actual[1]), GlobalRecord[1]);
+    EXPECT_EQ(std::get<2>(Actual[1]), GlobalRecord[2]);
+  }
+}
+
 } /* namespace clang */

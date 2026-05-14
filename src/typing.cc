@@ -249,16 +249,54 @@ std::string ManglingTypeVisitor::VisitBuiltinType(const BuiltinType *BT) {
 }
 
 void MangleFunctionParmList(std::string &Dest, const FunctionProtoType *Proto) {
+  int NumParams = 0;
   for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
        Iter++) {
     const Type *ParamType = Iter->getTypePtr();
     Dest += MangleType(ParamType);
+    NumParams += 1;
   }
   if (Proto->isVariadic()) {
     Dest += "z"; /* ... */
-  } else if (Proto->getNumParams() == 0) {
+  } else if (NumParams == 0) {
     Dest += "v"; /* void */
   }
+}
+
+std::string EncodeFunctionName(const FunctionDecl *FD) {
+  const auto OpKind = FD->getOverloadedOperator();
+  if (OpKind != OverloadedOperatorKind::OO_None) {
+    std::string ShortName;
+
+#define CaseStmt(Kind, ReadableName, MangledName)                              \
+  case (OverloadedOperatorKind::Kind): {                                       \
+    ShortName = MangledName;                                                   \
+    break;                                                                     \
+  }
+
+    switch (OpKind) {
+      MapOverloadedOperatorKind(CaseStmt) default : {
+        llvm::errs() << "Unknown overloaded operator kind: " << OpKind << "\n";
+        abort();
+      }
+    }
+#undef CaseStmt
+    return ShortName;
+  }
+
+  if (const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FD)) {
+    if (llvm::isa<CXXConstructorDecl>(Method)) {
+      return "C";
+    } else if (llvm::isa<CXXDestructorDecl>(Method)) {
+      return "D";
+    } else if (Method->isCopyAssignmentOperator() ||
+               Method->isMoveAssignmentOperator()) {
+      return "aS";
+    }
+  }
+
+  /* Try use ->getName. this may triggers an assertion failure. */
+  return EncodeNs(FD->getName());
 }
 
 } /* namespace database _CLANGDB_VISIBILITY */

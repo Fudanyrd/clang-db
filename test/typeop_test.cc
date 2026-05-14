@@ -157,9 +157,9 @@ TEST_F(TestHelper, RAII) {
    * (const type is marked with `K').
    */
   const char *Expected[][3] = {
-      {"3foo", "3fooCi", "6public1v"}, /* foo::foo(int) */
-      {"3foo", "3fooCv", "6public1v"}, /* foo::foo() */
-      {"3foo", "3fooDv", "6public1v"}, /* foo::~foo() */
+      {"3foo", "Ci", "6public1v"}, /* foo::foo(int) */
+      {"3foo", "Cv", "6public1v"}, /* foo::foo() */
+      {"3foo", "Dv", "6public1v"}, /* foo::~foo() */
   };
 
   database::InMemoryDatabase DB;
@@ -178,6 +178,32 @@ TEST_F(TestHelper, RAII) {
   }
 }
 
+TEST_F(TestHelper, RAIITemplate) {
+  PrepareParsingCXX("struct cint {\n"
+                    "  template <typename NumTy> cint(NumTy a);\n"
+                    "};");
+
+  const char *Expected[3] = {
+      "4cint",
+      "C"                            /* constructor */
+      "IN8template8typename5NumTyEE" /* template <typename NumTy> */
+      "v"                            /* return type (provided by libclang) */
+      "N8template8typename5NumTyE",  /* Parameter list. */
+      "6public1v"};
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<TupleStrStrStr> &Actual = GetClasses(DB);
+  EXPECT_EQ(Actual.size(), 1U);
+
+  EXPECT_EQ(std::get<0>(Actual[0]), Expected[0]);
+  EXPECT_EQ(std::get<1>(Actual[0]), Expected[1]);
+  EXPECT_EQ(std::get<2>(Actual[0]), Expected[2]);
+}
+
 TEST_F(TestHelper, CopyAndMove) {
   PrepareParsingCXX("struct foo {\n"
                     "  foo &operator=(foo&);\n"
@@ -186,9 +212,9 @@ TEST_F(TestHelper, CopyAndMove) {
                     "};");
 
   const char *Expected[][3] = {
-      {"3foo", "3fooCRN3fooE", "6public1v"},        /* foo::foo(foo&) */
-      {"3foo", "3fooaSON3fooE", "6public7RN3fooE"}, /* foo::operator=(foo&) */
-      {"3foo", "3fooaSRN3fooE", "6public7RN3fooE"}, /* foo::operator=(foo&&) */
+      {"3foo", "CRN3fooE", "6public1v"},        /* foo::foo(foo&) */
+      {"3foo", "aSON3fooE", "6public7RN3fooE"}, /* foo::operator=(foo&) */
+      {"3foo", "aSRN3fooE", "6public7RN3fooE"}, /* foo::operator=(foo&&) */
   };
 
   database::InMemoryDatabase DB;
@@ -259,7 +285,7 @@ TEST_F(TestHelper, VirtualMethod) {
   std::vector<TupleStrStrStr> &Actual = GetClasses(DB);
   ASSERT_EQ(Actual.size(), 8);
   std::sort(Actual.begin(), Actual.end());
-  TupleStrStrStr *Methods[] = {&Actual[3], &Actual[7]};
+  TupleStrStrStr *Methods[] = {&Actual[0], &Actual[4]};
 
   for (size_t I = 0; I < arraysize(Expected); I++) {
     TupleStrStrStr &Method = *Methods[I];

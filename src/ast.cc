@@ -147,20 +147,7 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       }
       this->TraverseCXXRecordDecl(LocalClass, Depth + 1, CurrentAccess);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
-      std::string ShortName;
-      if (llvm::isa<CXXConstructorDecl>(Method)) {
-        ShortName = EncodeNs(RD->getName());
-        ShortName += "C"; /* constructor */
-      } else if (llvm::isa<CXXDestructorDecl>(Method)) {
-        ShortName = EncodeNs(RD->getName());
-        ShortName += "D"; /* destructor */
-      } else if (Method->isCopyAssignmentOperator() ||
-                 Method->isMoveAssignmentOperator()) {
-        ShortName = EncodeNs(RD->getName());
-        ShortName += "aS"; /* assignment operator */
-      } else {
-        ShortName = EncodeNs(Method->getName());
-      }
+      std::string ShortName = EncodeFunctionName(Method);
       const Type *MethodType = Method->getType().getTypePtr();
       assert(dyn_cast<const FunctionType>(MethodType) != nullptr);
       if (auto *Proto = dyn_cast<const FunctionProtoType>(MethodType)) {
@@ -293,7 +280,7 @@ bool BuildVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD) {
 
 bool BuildVisitor::TraverseFunctionDecl(FunctionDecl *FD) {
   Context.PopUntilFindParent(FD->getDeclContext());
-  std::string ShortName = EncodeNs(FD->getName());
+  std::string ShortName = EncodeFunctionName(FD);
   const auto *Proto =
       dyn_cast<const FunctionProtoType>(FD->getType().getTypePtr());
   assert(Proto != nullptr);
