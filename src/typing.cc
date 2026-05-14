@@ -292,6 +292,8 @@ std::string EncodeFunctionName(const FunctionDecl *FD) {
     } else if (Method->isCopyAssignmentOperator() ||
                Method->isMoveAssignmentOperator()) {
       return "aS";
+    } else if (const auto *Conv = dyn_cast<CXXConversionDecl>(Method)) {
+      return "cv" + MangleType(Conv->getConversionType().getTypePtr());
     }
   }
 

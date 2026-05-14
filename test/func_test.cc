@@ -148,4 +148,55 @@ TEST_F(TestHelper, TemplateOverloadedOperator) {
   }
 }
 
+TEST_F(TestHelper, ConversionDecl) {
+  PrepareParsingCXX("struct Int {\n"
+                    "  operator int() const;\n"
+                    "};\n");
+
+  const char *GlobalRecord[3] = {
+      "3Int", "cv" /* conversion operator */ "i" /* int */ "v" /* parameters */,
+      "5const6public1i"};
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+  {
+    auto &Actual = GetClasses(DB);
+    ASSERT_TRUE(Actual.size() == 1U);
+    EXPECT_EQ(std::get<0>(Actual[0]), GlobalRecord[0]);
+    EXPECT_EQ(std::get<1>(Actual[0]), GlobalRecord[1]);
+    EXPECT_EQ(std::get<2>(Actual[0]), GlobalRecord[2]);
+  }
+}
+
+TEST_F(TestHelper, TemplateConversionDecl) {
+  PrepareParsingCXX("struct Int {\n"
+                    "  template <typename T> operator T() const;\n"
+                    "};\n");
+
+  const char *ClassRecord[3] = {
+      "3Int",
+      "cv"                       /* convert operator */
+      "N8template8typename1TE"   /* convert to T */
+      "IN8template8typename1TEE" /* template <typename T> */
+      "N8template8typename1TE"   /* return type */
+      "v",                       /* parameter list */
+      "5const"
+      "6public"
+      "22N8template8typename1TE"};
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+  {
+    auto &Actual = GetClasses(DB);
+    ASSERT_TRUE(Actual.size() == 1U);
+    EXPECT_EQ(std::get<0>(Actual[0]), ClassRecord[0]);
+    EXPECT_EQ(std::get<1>(Actual[0]), ClassRecord[1]);
+    EXPECT_EQ(std::get<2>(Actual[0]), ClassRecord[2]);
+  }
+}
+
 } /* namespace clang */
