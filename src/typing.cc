@@ -153,6 +153,17 @@ std::string MangleType(const Type *TypePtr) {
     Ret += (MangleType(ConstArr->getElementType().getTypePtr()));
     return Ret;
   }
+  if (auto *SubstTemplateTy =
+          dyn_cast<const SubstTemplateTypeParmType>(TypePtr)) {
+    return MangleType(SubstTemplateTy->getReplacementType().getTypePtr());
+  }
+  if (auto *DependentTy = dyn_cast<const DependentNameType>(TypePtr)) {
+    std::string Ret = "N";
+    Ret += MangleNestedNameSpecifier(DependentTy->getQualifier());
+    Ret += EncodeNs(DependentTy->getIdentifier()->getName());
+    Ret.push_back('E');
+    return Ret;
+  }
 
   /**
    * Not implemented.
@@ -219,10 +230,15 @@ std::string MangleRecordDecl(const TagDecl *RD) {
 
 std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS) {
   std::string ret;
-  if (const auto *NSD = dyn_cast<NamespaceDecl>(NNS->getAsNamespace())) {
+  if (const auto *NSD = (NNS->getAsNamespace())) {
     ret += EncodeNs(NSD->getName());
-  } else if (const auto *RD = dyn_cast<RecordDecl>(NNS->getAsRecordDecl())) {
+  } else if (const auto *RD = (NNS->getAsRecordDecl())) {
     ret += EncodeNs(RD->getName());
+  } else if (const auto *Ty = NNS->getAsType()) {
+    std::string Inc = MangleType(Ty);
+    assert(Inc.size() >= 2);
+    ret += (Inc.back() == 'E') ? Inc.substr(1, Inc.size() - 2) : Inc;
+  } else if (NNS->getKind() == NestedNameSpecifier::Global) {
   } else {
     llvm::errs()
         << "Error: unexpected decl context in MangleNestedNameSpecifier: "

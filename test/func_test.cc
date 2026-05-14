@@ -199,4 +199,29 @@ TEST_F(TestHelper, TemplateConversionDecl) {
   }
 }
 
+TEST_F(TestHelper, DependentType) {
+  PrepareParsingCXX("template <typename T>\n"
+                    "typename T::iterator GetBeg(T&a) { return a.begin(); }\n");
+
+  const char *GlobalDecl[3] = {
+      "",
+      "6GetBeg"
+      "IN8template8typename1TEE"        /* template <typename T> */
+      "N8template8typename1T8iteratorE" /* T::iterator */
+      "RN8template8typename1TE",        /* T& */
+      "N8template8typename1T8iteratorE" /* return T::iterator */
+  };
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+  {
+    auto &Actual = GetNamespaces(DB);
+    ASSERT_TRUE(Actual.size() == 1U);
+    EXPECT_EQ(std::get<0>(Actual[0]), GlobalDecl[0]);
+    EXPECT_EQ(std::get<1>(Actual[0]), GlobalDecl[1]);
+    EXPECT_EQ(std::get<2>(Actual[0]), GlobalDecl[2]);
+  }
+}
+
 } /* namespace clang */
