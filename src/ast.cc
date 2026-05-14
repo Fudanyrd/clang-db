@@ -5,6 +5,28 @@
 namespace clang {
 namespace database _CLANGDB_VISIBILITY {
 
+void EncodeBaseClasses(std::string &Dest, const CXXRecordDecl *RD) {
+  RD = RD->getDefinition();
+  if (RD == nullptr) {
+    return;
+  }
+
+  const auto &Bases = RD->bases();
+  if (Bases.empty()) {
+    return;
+  }
+  Dest += "7virtual";
+  for (auto Iter = Bases.begin(); Iter != Bases.end(); Iter++) {
+    const CXXRecordDecl *Base = Iter->getType()->getAsCXXRecordDecl();
+    if (!Base) {
+      continue;
+    }
+    Dest += EncodeAccessSpecifier(Iter->getAccessSpecifier());
+    Dest += (Iter->isVirtual() ? "7virtual" : "");
+    Dest += MangleRecordDecl(Base);
+  }
+}
+
 std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
                                      AccessSpecifier Access) {
   std::string MangledRetTy = MangleType(Method->getReturnType().getTypePtr());
@@ -26,9 +48,43 @@ std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access) {
   return Ret;
 }
 
+std::string TypeofVarDecl(VarDecl *Value, AccessSpecifier Access) {
+  std::string MangledTy = MangleType(Value->getType().getTypePtr());
+  std::string Ret = Value->isStaticDataMember() ? "6static" : "";
+  Ret +=
+      (Access == AccessSpecifier::AS_none) ? "" : EncodeAccessSpecifier(Access);
+  Ret += (Value->isConstexpr()) ? "9constexpr" : "";
+  Ret += EncodeNs(MangledTy);
+  return Ret;
+}
+
 static void AppendParmList(std::string &ShortName,
                            const FunctionProtoType *Proto) {
   MangleFunctionParmList(ShortName, Proto);
+}
+
+/**
+ * Traversing and collecting VarDecl inside Translation Unit
+ * or Namepsaces.
+ */
+struct ScopedDeclVisitor {
+  BuildVisitorContext &Context;
+  std::string WholeName;
+
+  ScopedDeclVisitor(BuildVisitorContext &Ctx, std::string WholeName)
+      : Context(Ctx), WholeName(std::move(WholeName)) {}
+
+  void IterateMembers(DeclContext *DC);
+};
+
+void ScopedDeclVisitor::IterateMembers(DeclContext *DC) {
+  for (auto *D : DC->decls()) {
+    if (auto *VD = llvm::dyn_cast<VarDecl>(D)) {
+      std::string ShortName = EncodeNs(VD->getName());
+      Context.GetDatabase().InsertIntoNamespace(
+          WholeName, ShortName, TypeofVarDecl(VD, AccessSpecifier::AS_none));
+    }
+  }
 }
 
 struct ClassDeclVisitor {
@@ -129,6 +185,10 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       CurrentAccess = Access->getAccess();
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(Member)) {
       this->TraverseClassTemplateDecl(CTD, Depth + 1, CurrentAccess);
+    } else if (auto *VD = llvm::dyn_cast<VarDecl>(Member)) {
+      std::string ShortName = EncodeNs(VD->getName());
+      Context.GetDatabase().InsertIntoClass(WholeName, ShortName,
+                                            TypeofVarDecl(VD, CurrentAccess));
     }
   }
 }
@@ -209,6 +269,9 @@ bool BuildVisitor::TraverseNamespaceDecl(NamespaceDecl *ND) {
   Context.PopUntilFindParent(ND->getParent());
   Context.EnterNamespace(ND);
 
+  ScopedDeclVisitor Visitor{Context, Context.CurrentNamespace()};
+  Visitor.IterateMembers(ND);
+
   return RecursiveASTVisitor<BuildVisitor>::TraverseNamespaceDecl(ND);
 }
 
@@ -262,6 +325,23 @@ bool BuildVisitor::TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD) {
    * declaration of the function template.
    */
   return true;
+}
+
+bool BuildVisitor::TraverseTranslationUnitDecl(TranslationUnitDecl *TU) {
+  Context.EnterTranslationUnit(TU);
+
+  ScopedDeclVisitor Visitor{Context, Context.CurrentNamespace()};
+  Visitor.IterateMembers(TU);
+  return RecursiveASTVisitor<BuildVisitor>::TraverseTranslationUnitDecl(TU);
+}
+
+bool BuildVisitor::TraverseLinkageSpecDecl(LinkageSpecDecl *LSD) {
+  Context.PopUntilFindParent(LSD->getParent());
+  Context.EnterLinkageSpecDecl(LSD);
+
+  ScopedDeclVisitor Visitor{Context, Context.CurrentNamespace()};
+  Visitor.IterateMembers(LSD);
+  return RecursiveASTVisitor<BuildVisitor>::TraverseLinkageSpecDecl(LSD);
 }
 
 } /* namespace database _CLANGDB_VISIBILITY */

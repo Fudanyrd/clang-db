@@ -17,6 +17,18 @@ namespace clang {
 
 namespace database _CLANGDB_VISIBILITY {
 
+/**
+ * <blockquote><pre>
+ * class A { };
+ * class B { };
+ * // type of class C:
+ * // class::virtual::public::virtual::A::protected::B
+ * // the first `virtual' indicate start of base classes.
+ * class C : public virtual A, protected B { };
+ * </pre></blockquote>
+ */
+void EncodeBaseClasses(std::string &Dest, const CXXRecordDecl *RD);
+
 struct BuildVisitor;
 struct BuildDatabaseConsumer;
 struct ClassDeclVisitor; /* internal use. */
@@ -26,7 +38,7 @@ struct ClassDeclVisitor; /* internal use. */
  *
  * The "type" column for a C++ record is "5class" or "6struct".
  */
-inline const char *TypeofCXXRecordDecl(CXXRecordDecl *RD) {
+inline const char *TypeofCXXRecord(const CXXRecordDecl *RD) {
   const char *Type;
   if (RD->isStruct()) {
     Type = "6struct";
@@ -40,6 +52,12 @@ inline const char *TypeofCXXRecordDecl(CXXRecordDecl *RD) {
     llvm_unreachable("Unknown CXXRecordDecl kind");
   }
   return Type;
+}
+
+inline std::string TypeofCXXRecordDecl(const CXXRecordDecl *RD) {
+  std::string Ret = TypeofCXXRecord(RD);
+  EncodeBaseClasses(Ret, RD);
+  return Ret;
 }
 
 inline const char *EncodeAccessSpecifier(AccessSpecifier Access) {
@@ -57,13 +75,22 @@ inline const char *EncodeAccessSpecifier(AccessSpecifier Access) {
 
 inline std::string TypeofLocalCXXRecordDecl(CXXRecordDecl *RD,
                                             AccessSpecifier Access) {
-  const char *Type = TypeofCXXRecordDecl(RD);
+  const char *Type = TypeofCXXRecord(RD);
   std::string Ret = Type;
   Ret += EncodeAccessSpecifier(Access);
+  EncodeBaseClasses(Ret, RD);
   return Ret;
 }
 
 std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access);
+
+/**
+ * @param Value: the variable declaration to be mangled.
+ * @param Access: caller should set it to none when it is not
+ * declared in a CXXRecordDecl, or it is a static data member. Otherwise, it
+ * should be set to the access specifier of the declaration.
+ */
+std::string TypeofVarDecl(VarDecl *Value, AccessSpecifier Access);
 
 std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
                                      AccessSpecifier Access);
@@ -134,7 +161,7 @@ private:
   }
 
   void EnterClass(CXXRecordDecl *RD) {
-    const char *Type = TypeofCXXRecordDecl(RD);
+    const auto Type = TypeofCXXRecordDecl(RD);
     EnterNamespaceOrClass(RD, RD->getName(), Type);
   }
 
@@ -194,10 +221,7 @@ struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
 
   bool TraverseNamespaceDecl(NamespaceDecl *ND);
 
-  bool TraverseTranslationUnitDecl(TranslationUnitDecl *TU) {
-    Context.EnterTranslationUnit(TU);
-    return RecursiveASTVisitor<BuildVisitor>::TraverseTranslationUnitDecl(TU);
-  }
+  bool TraverseTranslationUnitDecl(TranslationUnitDecl *TU);
 
   bool TraverseCXXRecordDecl(CXXRecordDecl *RD);
   bool TraverseClassTemplateDecl(ClassTemplateDecl *CTD);
@@ -205,11 +229,7 @@ struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
   bool TraverseFunctionDecl(FunctionDecl *FD);
   bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD);
 
-  bool TraverseLinkageSpecDecl(LinkageSpecDecl *LSD) {
-    Context.PopUntilFindParent(LSD->getParent());
-    Context.EnterLinkageSpecDecl(LSD);
-    return RecursiveASTVisitor<BuildVisitor>::TraverseLinkageSpecDecl(LSD);
-  }
+  bool TraverseLinkageSpecDecl(LinkageSpecDecl *LSD);
 
 private:
   std::map<std::string, std::string> Typedefs;

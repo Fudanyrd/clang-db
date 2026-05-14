@@ -15,6 +15,9 @@ namespace database _CLANGDB_VISIBILITY {
 
 std::string MangleType(const Type *TypePtr);
 
+/**
+ * @return the wholename (i.e. including the namespaces) of RD.
+ */
 std::string MangleRecordDecl(const TagDecl *RD);
 std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS);
 
