@@ -23,7 +23,6 @@ TEST_F(TestHelper, BuiltinTy) {
   PrepareParsingCXX("struct point {\n"
                     "  typedef float  _XTy;\n"
                     "  using _YTy = int;\n"
-                    "  \n"
                     "  _XTy &x();\n"
                     "  _YTy &y();\n"
                     "};");
@@ -198,6 +197,41 @@ TEST_F(TestHelper, CopyAndMove) {
   ASSERT_TRUE(Instance.ExecuteAction(*action));
 
   std::vector<TupleStrStrStr> &Actual = GetClasses(DB);
+  EXPECT_EQ(Actual.size(), arraysize(Expected));
+  std::sort(Actual.begin(), Actual.end());
+
+  for (size_t I = 0; I < arraysize(Expected); I++) {
+    EXPECT_EQ(std::get<0>(Actual[I]), Expected[I][0]);
+    EXPECT_EQ(std::get<1>(Actual[I]), Expected[I][1]);
+    EXPECT_EQ(std::get<2>(Actual[I]), Expected[I][2]);
+  }
+}
+
+TEST_F(TestHelper, Arrays) {
+  PrepareParsingCXX("extern \"C\" typedef int array_t [42];\n"
+                    "extern \"C\" void fn(array_t, array_t*);\n"
+                    "constexpr array_t foo = {1,2,3,4};\n"
+                    "extern array_t bar[25];");
+
+  const char *Expected[][3] = {
+      {"", "3bar", "9A25_A42_i"}, /* array_t bar[42] */
+      /**
+       * constexpr, A42_i =>
+       * `foo` is a constexpr array of size 42, type int.
+       */
+      {"", "3foo", "9constexpr5A42_i"}, /* array_t foo */
+      /**
+       * Array parameter is passed as pointer.
+       */
+      {"6extern", "2fnPiPA42_i", "v"}, /* void fn(array_t) */
+  };
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<TupleStrStrStr> &Actual = GetNamespaces(DB);
   EXPECT_EQ(Actual.size(), arraysize(Expected));
   std::sort(Actual.begin(), Actual.end());
 

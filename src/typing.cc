@@ -143,6 +143,16 @@ std::string MangleType(const Type *TypePtr) {
   if (auto *DeclTy = dyn_cast<const DecltypeType>(TypePtr)) {
     return MangleType(DeclTy->getUnderlyingType().getTypePtr());
   }
+  if (auto *ConstArr = dyn_cast<const ConstantArrayType>(TypePtr)) {
+    llvm::APInt Length = ConstArr->getSize();
+    char buf[28];
+    sprintf(buf, "A%zu", Length.getZExtValue());
+
+    std::string Ret = const_cast<const char *>(buf);
+    Ret.push_back('_');
+    Ret += (MangleType(ConstArr->getElementType().getTypePtr()));
+    return Ret;
+  }
 
   /**
    * Not implemented.

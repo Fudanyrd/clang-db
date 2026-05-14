@@ -231,11 +231,15 @@ These apply to all tables with the `type` column.
   </tr>
   <tr>
     <td>class</td>
-    <td>"5class" or "6struct" + <i>encode_ns</i>(Its Access Specifier), if a local class </td>
+    <td>See (3)</td>
   </tr>
   <tr>
     <td>function</td>
     <td>its return type</td>
+  </tr>
+  <tr>
+    <td>(Constant Sized) Array</td>
+    <td>See (4)</td>
   </tr>
   <tr>
     <td>data member of class</td>
@@ -267,6 +271,26 @@ def add_access_specifier(access: Literal['public', 'protected', 'private'],
 The `extern` is a keyword in C/C++, so no one will use it as a 
 namespace name. This way we can avoid name collision between C symbols and C++ symbols.
 
+**Note at (3)**: The type of struct/class/enum/union is made of 3 parts:
+its encoded type (i.e. "6struct"/"5class"...), plus its access specifier
+only when it is a local class, plus "7virtual" and  a list of encoded base classes.
+
+**Note at (4)** The type column for an constant-sized array is specified in `mangleArray`.
+
+```py
+def MangleArray(ElementTy: Type, length: int) -> str:
+    return ('A' + str(length) + '_' + ElementTy.wholename())
+```
+
+For example, 
+```c++
+class A{};
+class B{};
+// type of class C:
+// class::virtual::public::virtual::A::protected::B
+// the first `virtual' indicate start of base classes.
+class C : public virtual A, protected B {};
+```
 
 # Implementation
 
