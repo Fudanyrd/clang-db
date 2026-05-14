@@ -15,6 +15,17 @@ std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
   return Ret;
 }
 
+std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access) {
+  /**
+   * return format: mangled "(static::)(const::)(mutable::)mangled(type)"
+   */
+  std::string MangledTy = MangleType(Value->getType().getTypePtr());
+  std::string Ret = Value->isMutable() ? "7mutable" : "";
+  Ret += EncodeAccessSpecifier(Access);
+  Ret += EncodeNs(MangledTy);
+  return Ret;
+}
+
 static void AppendParmList(std::string &ShortName,
                            const FunctionProtoType *Proto) {
   MangleFunctionParmList(ShortName, Proto);
@@ -40,8 +51,8 @@ public:
 
 void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
   AccessSpecifier CurrentAccess =
-      RD->isStruct() ? AccessSpecifier::AS_public
-                     : AccessSpecifier::AS_private /* isClass() */;
+      RD->isClass() ? AccessSpecifier::AS_private
+                    : AccessSpecifier::AS_public /* struct/union */;
 
   auto iter = RD->decls_begin();
   auto end = RD->decls_end();
@@ -111,10 +122,9 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
           WholeName, ShortName,
           TypeofLocalCXXMethodDecl(dyn_cast<CXXMethodDecl>(Fn), CurrentAccess));
     } else if (auto *Field = llvm::dyn_cast<FieldDecl>(Member)) {
-      /**
-       * TODO: insert into the class table.
-       */
-      llvm::errs() << Field->getName() << "\n";
+      std::string ShortName = EncodeNs(Field->getName());
+      Context.GetDatabase().InsertIntoClass(
+          WholeName, ShortName, TypeofClassMember(Field, CurrentAccess));
     } else if (auto *Access = llvm::dyn_cast<AccessSpecDecl>(Member)) {
       CurrentAccess = Access->getAccess();
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(Member)) {
@@ -203,11 +213,6 @@ bool BuildVisitor::TraverseNamespaceDecl(NamespaceDecl *ND) {
 }
 
 bool BuildVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD) {
-  bool isClassOrStruct = RD->isClass() || RD->isStruct();
-  if (!isClassOrStruct) {
-    return true;
-  }
-
   Context.PopUntilFindParent(RD->getDeclContext());
 
   /* we do traversal on our own, with RD->decls(). */

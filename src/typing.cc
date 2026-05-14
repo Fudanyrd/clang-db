@@ -59,6 +59,7 @@ std::string MangleType(const Type *TypePtr) {
   X(Void, "v")       /* void */                                                \
   X(WChar_S, "w")    /* wchar_t */                                             \
   X(LongLong, "x")   /* long long int */                                       \
+  X(NullPtr, "Dn")   /* std::nullptr_t, decltype(nullptr) */                   \
   X(ULongLong, "y")  /* unsigned long long int */
 #define CaseStmt(TyKind, Str)                                                  \
   case (BuiltinType::Kind::TyKind): {                                          \
@@ -173,7 +174,11 @@ std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
     } else if (auto *RD = dyn_cast<const CXXRecordDecl>(Ptr)) {
       ret += EncodeNs(RD->getName());
     } else if (auto *LSD = dyn_cast<const LinkageSpecDecl>(Ptr)) {
-      /* Ignored. */
+      if (LSD->getLanguage() == LinkageSpecLanguageIDs::C) {
+        ret = "6extern"; /* ignore all previous namespaces. */
+      } else {
+        /* ignored. */
+      }
     } else {
       llvm::errs() << "Unexpected decl context in namespace stack: "
                    << Ptr->getDeclKindName() << "\n";

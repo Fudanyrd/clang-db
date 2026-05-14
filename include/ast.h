@@ -63,6 +63,8 @@ inline std::string TypeofLocalCXXRecordDecl(CXXRecordDecl *RD,
   return Ret;
 }
 
+std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access);
+
 std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
                                      AccessSpecifier Access);
 
@@ -204,6 +206,7 @@ struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
   bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD);
 
   bool TraverseLinkageSpecDecl(LinkageSpecDecl *LSD) {
+    Context.PopUntilFindParent(LSD->getParent());
     Context.EnterLinkageSpecDecl(LSD);
     return RecursiveASTVisitor<BuildVisitor>::TraverseLinkageSpecDecl(LSD);
   }
