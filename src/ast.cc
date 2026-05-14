@@ -32,6 +32,7 @@ std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
   std::string MangledRetTy = MangleType(Method->getReturnType().getTypePtr());
   std::string Ret = Method->isStatic() ? "6static" : "";
   Ret += (Method->isConst() ? "5const" : "");
+  Ret += (Method->isPureVirtual() ? "7virtual" : "");
   Ret += EncodeAccessSpecifier(Access);
   Ret += EncodeNs(MangledRetTy);
   return Ret;

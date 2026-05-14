@@ -242,4 +242,31 @@ TEST_F(TestHelper, Arrays) {
   }
 }
 
+TEST_F(TestHelper, VirtualMethod) {
+  PrepareParsingCXX("struct A { virtual int fn() = 0; };\n"
+                    "struct B : public A { int fn() override; };");
+
+  const char *Expected[][3] = {
+      "1A", "2fnv", "7virtual6public1i", /* A::fn() */
+      "1B", "2fnv", "6public1i",         /* B::fn() */
+  };
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<TupleStrStrStr> &Actual = GetClasses(DB);
+  ASSERT_EQ(Actual.size(), 8);
+  std::sort(Actual.begin(), Actual.end());
+  TupleStrStrStr *Methods[] = {&Actual[3], &Actual[7]};
+
+  for (size_t I = 0; I < arraysize(Expected); I++) {
+    TupleStrStrStr &Method = *Methods[I];
+    EXPECT_EQ(std::get<0>(Method), Expected[I][0]);
+    EXPECT_EQ(std::get<1>(Method), Expected[I][1]);
+    EXPECT_EQ(std::get<2>(Method), Expected[I][2]);
+  }
+}
+
 } /* namespace clang */
