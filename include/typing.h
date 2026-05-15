@@ -133,6 +133,12 @@ struct ManglingTypeVisitor
   X(OO_Plus, "+", "pl")                                                        \
   X(OO_PlusPlus, "++", "pp")                                                   \
   X(OO_Percent, "%", "ps")                                                     \
+  X(OO_Call, "()", "cl")                                                       \
+  X(OO_Subscript, "[]", "ix")                                                  \
+  X(OO_New, "new", "nw")                                                       \
+  X(OO_Delete, "delete", "dl")                                                 \
+  X(OO_Array_New, "new[]", "na")                                               \
+  X(OO_Array_Delete, "delete[]", "da")                                         \
   X(OO_GreaterGreater, ">>", "rs")
 
 } /* namespace clang */
