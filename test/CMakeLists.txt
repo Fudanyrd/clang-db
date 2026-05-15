@@ -1,6 +1,8 @@
 include_directories(
   ${PROJECT_SOURCE_DIR}/3rdparty/gtest/googletest/include
-  ${CLANGDB_PRIVATE_INCLUDE_DIRS})
+  ${CLANGDB_PRIVATE_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR})
+
 file(GLOB_RECURSE CLANGDB_TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/*_test.cc")
 
 add_custom_target(run-tests 

@@ -24,6 +24,14 @@ std::string MangleTemplateParameterList(const TemplateParameterList &List) {
   for (auto Param : List) {
     if (auto *TTPD = llvm::dyn_cast<TemplateTypeParmDecl>(Param)) {
       Ret += MangleTemplateTypeParmDecl(TTPD);
+    } else if (auto *NTTPD = llvm::dyn_cast<NonTypeTemplateParmDecl>(Param)) {
+      Ret += "N8template8decltype";
+      std::string Ty = MangleType(NTTPD->getType().getTypePtr());
+      if (NTTPD->isParameterPack()) {
+        Ty.push_back('z');
+      }
+      Ret += EncodeNs(Ty);
+      Ret.push_back('E');
     }
   }
   Ret.push_back('E');
