@@ -96,154 +96,23 @@ std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
                                      AccessSpecifier Access);
 
 /**
- * Context for {@link BuildVisitor} and {@link BuildDatabaseConsumer}.
- */
-struct BuildVisitorContext {
-public:
-  /**
-   * Prefix for anonymous namespaces. The whole name of an anonymous namespace
-   * will be this prefix followed by a unique number, e.g., "_GLOBAL__N_0"
-   */
-  static constexpr char AnonymousNamespacePrefix[] = "_GLOBAL__N_";
-
-private:
-  friend struct BuildVisitor;
-  friend struct BuildDatabaseConsumer;
-  friend struct ClassDeclVisitor; /* internal use. */
-  DatabaseInterface *DB;
-
-  /**
-   * For both `NamespaceDecl`, `TranslationUnitDecl`, and `CXXRecordDecl`.
-   */
-  std::vector<DeclContext *> NamespaceStack;
-
-  /**
-   * Generating unique names for anonymous namespaces.
-   */
-  size_t AnonymousNamespaceCounter;
-  ASTContext *CompilerContext;
-
-  BuildVisitorContext(DatabaseInterface *Database, ASTContext *Ctx)
-      : DB(Database), NamespaceStack(), AnonymousNamespaceCounter(0),
-        CompilerContext(Ctx) {}
-
-  void EnterNamespaceOrClass(DeclContext *DeclCtx, llvm::StringRef Name,
-                             std::string Type) {
-    auto *TopLevel = NamespaceStack.back();
-    assert(TopLevel == DeclCtx->getParent() &&
-           "NamespaceDecl's parent should be the current decl context");
-
-    auto CurNsWhole = CurrentNamespace();
-    auto ShortNs = EncodeNs(Name);
-    NamespaceStack.push_back(DeclCtx);
-    if (dyn_cast<CXXRecordDecl>(TopLevel)) {
-      DB->InsertIntoClass(CurNsWhole, ShortNs, Type);
-    } else {
-      DB->InsertIntoNamespace(CurNsWhole, ShortNs, Type);
-    }
-  }
-
-  void EnterNamespace(NamespaceDecl *ND) {
-    EnterNamespaceOrClass(ND, ND->getName(), "9namespace");
-  }
-
-  void EnterLinkageSpecDecl(LinkageSpecDecl *LSD) {
-    NamespaceStack.push_back(LSD);
-  }
-
-  bool TopIsCXXRecordDecl() const {
-    assert(!NamespaceStack.empty() && "NamespaceStack should not be empty");
-    return isa<CXXRecordDecl>(NamespaceStack.back());
-  }
-  bool TopIsCLinkage() const {
-    LinkageSpecDecl *LSD = dyn_cast<LinkageSpecDecl>(NamespaceStack.back());
-    return LSD != nullptr && LSD->getLanguage() == LinkageSpecLanguageIDs::C;
-  }
-
-  void EnterClass(CXXRecordDecl *RD) {
-    const auto Type = TypeofCXXRecordDecl(RD);
-    EnterNamespaceOrClass(RD, RD->getName(), Type);
-  }
-
-  void EnterTranslationUnit(TranslationUnitDecl *TU) {
-    NamespaceStack.clear(); /* clear whatever exists in the stack. */
-    NamespaceStack.push_back(TU);
-  }
-
-  void LeaveNamespaceOrClass() { NamespaceStack.pop_back(); }
-
-  DeclContext *CurrentDeclContext() const {
-    if (NamespaceStack.empty()) {
-      llvm::errs()
-          << "Must have at least one TransaltionUnitDecl in the stack\n";
-      assert(0);
-    }
-    return NamespaceStack.back();
-  }
-
-  std::string GetAnonymousNamespaceName() {
-    return AnonymousNamespacePrefix +
-           std::to_string(AnonymousNamespaceCounter++);
-  }
-
-  void PopUntilFindParent(DeclContext *Parent) {
-    DeclContext *TranslationUnit = NamespaceStack[0];
-    while (!NamespaceStack.empty() && NamespaceStack.back() != Parent) {
-      NamespaceStack.pop_back();
-    }
-    if (NamespaceStack.empty()) {
-      /* Add a break point here to see what's happening. */
-      NamespaceStack.push_back(TranslationUnit);
-    }
-  }
-
-public:
-  /**
-   * Returns mangled whole name of current namespace, e.g.,
-   * "3foo3bar" for "namespace foo { namespace bar { } }",
-   * but "" for the global namespace.
-   */
-  std::string CurrentNamespace() const;
-
-  DatabaseInterface &GetDatabase() const {
-    clangdb_check_internal(
-        DB != nullptr && "DatabaseInterface is not set in BuildVisitorContext");
-    return *DB;
-  }
-};
-
-/**
  * The visitor for building the database. It traverses the AST and
  * fills the database tables, as specified in ReadMe.
  */
 struct BuildVisitor : public RecursiveASTVisitor<BuildVisitor> {
-  BuildVisitor(BuildVisitorContext &Ctx) : Context(Ctx) {}
-
-  bool TraverseNamespaceDecl(NamespaceDecl *ND);
-
+  BuildVisitor(DatabaseInterface *DB) : Database(DB) {}
   bool TraverseTranslationUnitDecl(TranslationUnitDecl *TU);
 
-  bool TraverseCXXRecordDecl(CXXRecordDecl *RD);
-  bool TraverseClassTemplateDecl(ClassTemplateDecl *CTD);
-
-  bool TraverseFunctionDecl(FunctionDecl *FD);
-  bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD);
-
-  bool TraverseLinkageSpecDecl(LinkageSpecDecl *LSD);
-
 private:
-  std::map<std::string, std::string> Typedefs;
-  BuildVisitorContext &Context;
+  DatabaseInterface *Database;
 };
 
 struct BuildDatabaseConsumer : public ASTConsumer {
-  BuildVisitorContext Context;
-  BuildDatabaseConsumer(DatabaseInterface *Database)
-      : Context(Database, nullptr) {}
+  DatabaseInterface *Database;
+  BuildDatabaseConsumer(DatabaseInterface *Database) : Database(Database) {}
 
   void HandleTranslationUnit(ASTContext &Ctx) override {
-    BuildVisitor Visitor(this->Context);
-    Context.CompilerContext = &Ctx;
+    BuildVisitor Visitor(this->Database);
     Visitor.TraverseDecl(Ctx.getTranslationUnitDecl());
   }
 };
