@@ -5,6 +5,12 @@
 namespace clang {
 namespace database _CLANGDB_VISIBILITY {
 
+/**
+ * Simply continue, but when explaining the results,
+ * we will know that this is an unknown type.
+ */
+static constexpr char UNKNOWN_TYPE[] = "N8typename7unknownE";
+
 static std::string
 MangleTemplateTypeParmDecl(const TemplateTypeParmDecl *TTPD) {
   std::string ret = "N8template8typename" + EncodeNs(TTPD->getName());
@@ -79,10 +85,7 @@ std::string MangleType(const Type *TypePtr) {
     const auto Kind = BT->getKind();
 
     switch (Kind) {
-      BuiltInTyKindToString(CaseStmt) default : {
-        llvm::errs() << "Unknown builtin type kind: " << Kind << "\n";
-        abort();
-      }
+      BuiltInTyKindToString(CaseStmt) default : { return UNKNOWN_TYPE; }
     }
 
 #undef CaseStmt
@@ -178,7 +181,7 @@ std::string MangleType(const Type *TypePtr) {
    */
   llvm::errs() << "Error: unhandled type kind in MangleType: "
                << TypePtr->getTypeClass() << "\n";
-  abort();
+  return UNKNOWN_TYPE;
 }
 
 std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,

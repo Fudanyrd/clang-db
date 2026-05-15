@@ -1,4 +1,5 @@
 #include "clangdb.h"
+#include "context.h"
 #include <iostream>
 #include <llvm/Support/Casting.h>
 
@@ -139,12 +140,6 @@ void ClassDeclVisitor::IterateMembers(CXXRecordDecl *RD, int Depth) {
       const auto ShortName = EncodeNs(LocalClass->getName());
       const auto FullName = CurNsWholename + ShortName;
 
-      if (LocalClass->getDeclContext() == RD)
-        ;
-      else {
-        RD->dump(llvm::errs());
-        assert(0);
-      }
       this->TraverseCXXRecordDecl(LocalClass, Depth + 1, CurrentAccess);
     } else if (auto *Method = llvm::dyn_cast<CXXMethodDecl>(Member)) {
       std::string ShortName = EncodeFunctionName(Method);
@@ -273,6 +268,8 @@ bool BuildVisitor::TraverseCXXRecordDecl(CXXRecordDecl *RD) {
 }
 
 bool BuildVisitor::TraverseClassTemplateDecl(ClassTemplateDecl *CTD) {
+  Context.PopUntilFindParent(CTD->getDeclContext());
+
   ClassDeclVisitor Visitor(this->Context);
   Visitor.TraverseClassTemplateDecl(CTD);
   return true;
@@ -316,11 +313,9 @@ bool BuildVisitor::TraverseFunctionTemplateDecl(FunctionTemplateDecl *FTD) {
 }
 
 bool BuildVisitor::TraverseTranslationUnitDecl(TranslationUnitDecl *TU) {
-  Context.EnterTranslationUnit(TU);
-
-  ScopedDeclVisitor Visitor{Context, Context.CurrentNamespace()};
-  Visitor.IterateMembers(TU);
-  return RecursiveASTVisitor<BuildVisitor>::TraverseTranslationUnitDecl(TU);
+  DatabaseContext Ctx(Context.GetDatabase());
+  Ctx.VisitTranslationUnitDecl(TU);
+  return true;
 }
 
 bool BuildVisitor::TraverseLinkageSpecDecl(LinkageSpecDecl *LSD) {

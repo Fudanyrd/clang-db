@@ -70,9 +70,7 @@ inline std::string MangleTemplateName(const TemplateName &TN) {
   } else if (auto *FTD = llvm::dyn_cast<FunctionTemplateDecl>(TD)) {
     return MangleFunctionTemplate(*FTD);
   } else {
-    llvm::errs() << "Unknown template declaration kind: " << TD->getKind()
-                 << "\n";
-    abort();
+    return "8typename7unknown";
   }
 }
 
