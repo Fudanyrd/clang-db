@@ -12,6 +12,8 @@ tmp-*
 *.tgz
 *.txz
 *.zip
+# clang ast
+*.json
 
 # .vscode (keep settings.json)
 .vscode/*

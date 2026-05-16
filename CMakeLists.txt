@@ -4,6 +4,7 @@ project(clang-db)
 # XXX: options
 option(CLANGDB_BUILD_UNITTESTS "Build unit tests" ON)
 option(CLANGDB_BUILD_TOOLS "Build tools" ON)
+option(CLANGDB_ENABLE_ASSERTIONS "Enable assertions in the code" ON)
 
 if(DEFINED CMAKE_CXX_STANDARD)
   message(STATUS "C++ standard already set to ${CMAKE_CXX_STANDARD}")
@@ -14,6 +15,10 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "-fno-rtti -fno-exceptions ${CMAKE_CXX_FLAGS}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+if (CLANGDB_ENABLE_ASSERTIONS)
+  add_definitions(-D_GLIBCXX_ASSERTIONS)
+endif()
 
 find_package(Clang REQUIRED)
 if(DEFINED CLANG_INCLUDE_DIRS)
