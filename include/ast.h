@@ -112,6 +112,7 @@ struct BuildDatabaseConsumer : public ASTConsumer {
   BuildDatabaseConsumer(DatabaseInterface *Database) : Database(Database) {}
 
   void HandleTranslationUnit(ASTContext &Ctx) override {
+    Database->SetSourceManager(Ctx.getSourceManager());
     BuildVisitor Visitor(this->Database);
     Visitor.TraverseDecl(Ctx.getTranslationUnitDecl());
   }

@@ -310,7 +310,9 @@ std::string EncodeFunctionName(const FunctionDecl *FD) {
   if (const auto *DGD = dyn_cast<const CXXDeductionGuideDecl>(FD)) {
     FD = DGD->getCorrespondingConstructor();
   }
-  assert(FD != nullptr);
+  if (FD == nullptr) {
+    return "0"; /* = EncodeNs("") */
+  }
 
   const auto OpKind = FD->getOverloadedOperator();
   if (OpKind != OverloadedOperatorKind::OO_None) {

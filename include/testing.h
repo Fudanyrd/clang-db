@@ -55,6 +55,11 @@ public:
     return DB.Classes;
   }
 
+  std::vector<std::tuple<std::string, std::string, int>> &
+  GetSymbols(database::InMemoryDatabase &DB) {
+    return DB.Symbols;
+  }
+
   ~TestHelper() = default;
 };
 

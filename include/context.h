@@ -109,6 +109,12 @@ private:
     Dest += MangleClassTemplate(*TD);
   }
 
+  void InsertIntoNamespace(std::string CurScope, std::string &ShortName,
+                           std::string SymType, Decl *CurDecl);
+
+  void InsertIntoClass(std::string CurScope, std::string &ShortName,
+                       std::string SymType, Decl *CurDecl);
+
 public:
   DatabaseContext(DatabaseInterface &DB) : Database(DB) {
     DB.TransactionBegin();

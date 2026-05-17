@@ -1,6 +1,8 @@
 #ifndef __STORAGE_H__
 #define __STORAGE_H__ (1)
 
+#include <clang/Basic/SourceLocation.h>
+#include <clang/Basic/SourceManager.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string_view>
 #include <tuple>
@@ -21,7 +23,12 @@ public:
 };
 
 class DatabaseInterface {
+protected:
+  SourceManager *SrcMgr;
+
 public:
+  void SetSourceManager(SourceManager &SM) { SrcMgr = &SM; }
+
   virtual ~DatabaseInterface() = default;
 
   virtual int TransactionBegin() = 0;
@@ -29,6 +36,12 @@ public:
 
   virtual std::unique_ptr<TableIterator> ClassBegin() = 0;
   virtual std::unique_ptr<TableIterator> NamespaceBegin() = 0;
+
+  /**
+   * Zero value indicates success;
+   * non-zero value indicates failure.
+   */
+  using DBExecResult = int;
 
   /**
    * Insert a record into table `class`.
@@ -42,6 +55,20 @@ public:
   virtual int InsertIntoNamespace(std::string_view NamespaceName,
                                   std::string_view Child,
                                   std::string_view Type) = 0;
+
+  virtual int InsertSymbol(std::string_view Name, std::string File,
+                           int Line) = 0;
+
+  int InsertSymbol(std::string_view Name, SourceLocation Loc) {
+    if (!Loc.isValid()) {
+      return 1; /* Invalid location */
+    }
+    PresumedLoc PLoc = SrcMgr->getPresumedLoc(Loc);
+    if (PLoc.isInvalid()) {
+      return 1; /* Invalid presumed location */
+    }
+    return InsertSymbol(Name, PLoc.getFilename(), PLoc.getLine());
+  }
 };
 
 /**
@@ -51,6 +78,7 @@ class InMemoryDatabase : public DatabaseInterface {
 private:
   std::vector<std::tuple<std::string, std::string, std::string>> Classes;
   std::vector<std::tuple<std::string, std::string, std::string>> Namespaces;
+  std::vector<std::tuple<std::string, std::string, int>> Symbols;
   bool InTransaction = false;
 
   friend class ::clang::TestHelper;
@@ -117,6 +145,11 @@ public:
   const std::vector<std::tuple<std::string, std::string, std::string>> &
   GetNamespaces() const {
     return Namespaces;
+  }
+
+  int InsertSymbol(std::string_view Name, std::string File, int Line) override {
+    Symbols.emplace_back(Name, File, Line);
+    return 0;
   }
 };
 

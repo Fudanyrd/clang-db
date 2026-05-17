@@ -29,36 +29,39 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
   for (auto Iter = Scope->decls_begin(); Iter != Scope->decls_end(); Iter++) {
     if (auto *ND = llvm::dyn_cast<NamespaceDecl>(*Iter)) {
       std::string ShortName = EncodeNs(ND->getName());
+      /*
+       * Do not use this->InsertIntoNamespace,
+       * which also adds `ND` to the DB.
+       */
       Database.InsertIntoNamespace(CurScope, ShortName, "9namespace");
       this->VisitNamespaceDecl(ND);
     } else if (auto *LSD = llvm::dyn_cast<LinkageSpecDecl>(*Iter)) {
       VisitLinkageSpecDecl(LSD);
     } else if (auto *RD = llvm::dyn_cast<CXXRecordDecl>(*Iter)) {
       std::string ShortName = EncodeNs(RD->getName());
-      Database.InsertIntoNamespace(CurScope, ShortName,
-                                   TypeofCXXRecordDecl(RD));
+      InsertIntoNamespace(CurScope, ShortName, TypeofCXXRecordDecl(RD), RD);
       VisitCXXRecordDecl(RD);
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(*Iter)) {
       std::string ShortName;
       ClassTemplateMember(ShortName, CTD);
-      Database.InsertIntoNamespace(
-          CurScope, ShortName, TypeofCXXRecordDecl(CTD->getTemplatedDecl()));
+      InsertIntoNamespace(CurScope, ShortName,
+                          TypeofCXXRecordDecl(CTD->getTemplatedDecl()), CTD);
       VisitClassTemplateDecl(CTD);
     } else if (auto *_ = llvm::dyn_cast<CXXDeductionGuideDecl>(*Iter)) {
       /* ignored for now. */
     } else if (auto *FD = llvm::dyn_cast<FunctionDecl>(*Iter)) {
       std::string ShortName;
       FunctionMember(ShortName, FD);
-      Database.InsertIntoNamespace(CurScope, ShortName, TypeofFunctionDecl(FD));
+      InsertIntoNamespace(CurScope, ShortName, TypeofFunctionDecl(FD), FD);
     } else if (auto *FTD = llvm::dyn_cast<FunctionTemplateDecl>(*Iter)) {
       std::string ShortName;
       FunctionTemplateMember(ShortName, FTD);
-      Database.InsertIntoNamespace(CurScope, ShortName,
-                                   TypeofFunctionTemplateDecl(FTD));
+      InsertIntoNamespace(CurScope, ShortName, TypeofFunctionTemplateDecl(FTD),
+                          FTD);
     } else if (auto *VD = llvm::dyn_cast<VarDecl>(*Iter)) {
       std::string ShortName = EncodeNs(VD->getName());
-      Database.InsertIntoNamespace(CurScope, ShortName,
-                                   TypeofVarDecl(VD, AccessSpecifier::AS_none));
+      InsertIntoNamespace(CurScope, ShortName,
+                          TypeofVarDecl(VD, AccessSpecifier::AS_none), VD);
     }
   }
 }
@@ -75,40 +78,72 @@ void DatabaseContext::IterateClass(CXXRecordDecl *RD) {
   for (Iter++; Iter != End; Iter++) {
     if (auto *RD = llvm::dyn_cast<CXXRecordDecl>(*Iter)) {
       std::string ShortName = EncodeNs(RD->getName());
-      Database.InsertIntoClass(CurrentScope(), ShortName,
-                               TypeofLocalCXXRecordDecl(RD, Access));
+      InsertIntoClass(CurrentScope(), ShortName,
+                      TypeofLocalCXXRecordDecl(RD, Access), RD);
       VisitCXXRecordDecl(RD);
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(*Iter)) {
       std::string ShortName;
       ClassTemplateMember(ShortName, CTD);
-      Database.InsertIntoClass(
-          CurrentScope(), ShortName,
-          TypeofLocalCXXRecordDecl(CTD->getTemplatedDecl(), Access));
+      InsertIntoClass(CurrentScope(), ShortName,
+                      TypeofLocalCXXRecordDecl(CTD->getTemplatedDecl(), Access),
+                      CTD);
       VisitClassTemplateDecl(CTD);
     } else if (auto *FD = llvm::dyn_cast<FunctionDecl>(*Iter)) {
       std::string ShortName;
       FunctionMember(ShortName, FD);
-      Database.InsertIntoClass(
+      InsertIntoClass(
           CurrentScope(), ShortName,
-          TypeofLocalCXXMethodDecl(dyn_cast<CXXMethodDecl>(FD), Access));
+          TypeofLocalCXXMethodDecl(dyn_cast<CXXMethodDecl>(FD), Access), FD);
     } else if (auto *FTD = llvm::dyn_cast<FunctionTemplateDecl>(*Iter)) {
       std::string ShortName;
       FunctionTemplateMember(ShortName, FTD);
-      Database.InsertIntoClass(
+      InsertIntoClass(
           CurrentScope(), ShortName,
           TypeofLocalCXXMethodDecl(
-              dyn_cast<CXXMethodDecl>(FTD->getTemplatedDecl()), Access));
+              dyn_cast<CXXMethodDecl>(FTD->getTemplatedDecl()), Access),
+          FTD);
     } else if (auto *VD = llvm::dyn_cast<VarDecl>(*Iter)) {
       std::string ShortName = EncodeNs(VD->getName());
-      Database.InsertIntoClass(CurrentScope(), ShortName,
-                               TypeofVarDecl(VD, Access));
+      InsertIntoClass(CurrentScope(), ShortName, TypeofVarDecl(VD, Access), VD);
     } else if (auto *AccessDecl = llvm::dyn_cast<AccessSpecDecl>(*Iter)) {
       Access = AccessDecl->getAccess();
     } else if (auto *FD = llvm::dyn_cast<FieldDecl>(*Iter)) {
       std::string ShortName = EncodeNs(FD->getName());
-      Database.InsertIntoClass(CurrentScope(), ShortName,
-                               TypeofClassMember(FD, Access));
+      InsertIntoClass(CurrentScope(), ShortName, TypeofClassMember(FD, Access),
+                      FD);
     }
+  }
+}
+
+void DatabaseContext::InsertIntoNamespace(std::string CurScope,
+                                          std::string &ShortName,
+                                          std::string SymType, Decl *CurDecl) {
+  int Result = Database.InsertIntoNamespace(CurScope, ShortName, SymType);
+  if (unlikely(Result != 0)) {
+    llvm::errs() << "Failed to insert into namespace: " << CurScope << "\n";
+  }
+
+  CurScope += ShortName;
+  std::string &WholeName = CurScope;
+  Result = Database.InsertSymbol(WholeName, CurDecl->getLocation());
+  if (unlikely(Result != 0)) {
+    llvm::errs() << "Failed to insert symbol: " << WholeName << "\n";
+  }
+}
+
+void DatabaseContext::InsertIntoClass(std::string CurScope,
+                                      std::string &ShortName,
+                                      std::string SymType, Decl *CurDecl) {
+  int Result = Database.InsertIntoClass(CurrentScope(), ShortName, SymType);
+  if (unlikely(Result != 0)) {
+    llvm::errs() << "Failed to insert into class: " << CurrentScope() << "\n";
+  }
+
+  CurScope += ShortName;
+  std::string &WholeName = CurScope;
+  Result = Database.InsertSymbol(WholeName, CurDecl->getLocation());
+  if (unlikely(Result != 0)) {
+    llvm::errs() << "Failed to insert symbol: " << WholeName << "\n";
   }
 }
 
