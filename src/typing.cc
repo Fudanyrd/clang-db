@@ -13,6 +13,9 @@ static constexpr char UNKNOWN_TYPE[] = "N8typename7unknownE";
 
 static std::string
 MangleTemplateTypeParmDecl(const TemplateTypeParmDecl *TTPD) {
+  if (TTPD == nullptr) {
+    return "N8template8typename7defaultE";
+  }
   std::string ret = "N8template8typename" + EncodeNs(TTPD->getName());
   if (TTPD->isParameterPack()) {
     ret += "8decltype1z";
@@ -164,6 +167,15 @@ std::string MangleType(const Type *TypePtr) {
     Ret += (MangleType(ConstArr->getElementType().getTypePtr()));
     return Ret;
   }
+  if (auto *DepArr = dyn_cast<const DependentSizedArrayType>(TypePtr)) {
+    /**
+     * It is not possible to encode(mangle) the size information.
+     * Therefore, only encodes the element type.
+     */
+    std::string Ret = "A_";
+    Ret += MangleType(DepArr->getElementType().getTypePtr());
+    return Ret;
+  }
   if (auto *SubstTemplateTy =
           dyn_cast<const SubstTemplateTypeParmType>(TypePtr)) {
     return MangleType(SubstTemplateTy->getReplacementType().getTypePtr());
@@ -174,6 +186,10 @@ std::string MangleType(const Type *TypePtr) {
     Ret += EncodeNs(DependentTy->getIdentifier()->getName());
     Ret.push_back('E');
     return Ret;
+  }
+  if (auto *ICN = dyn_cast<const InjectedClassNameType>(TypePtr)) {
+    const auto *RD = ICN->getDecl();
+    return "N" + MangleRecordDecl(RD) + "E";
   }
 
   /**
@@ -291,6 +307,11 @@ void MangleFunctionParmList(std::string &Dest, const FunctionProtoType *Proto) {
 }
 
 std::string EncodeFunctionName(const FunctionDecl *FD) {
+  if (const auto *DGD = dyn_cast<const CXXDeductionGuideDecl>(FD)) {
+    FD = DGD->getCorrespondingConstructor();
+  }
+  assert(FD != nullptr);
+
   const auto OpKind = FD->getOverloadedOperator();
   if (OpKind != OverloadedOperatorKind::OO_None) {
     std::string ShortName;
@@ -325,6 +346,11 @@ std::string EncodeFunctionName(const FunctionDecl *FD) {
   }
 
   /* Try use ->getName. this may triggers an assertion failure. */
+  if (FD->getIdentifier() == nullptr) {
+    llvm::errs() << "Error: unnamed function decl\n";
+    FD->dump();
+    abort();
+  }
   return EncodeNs(FD->getName());
 }
 

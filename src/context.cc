@@ -44,6 +44,8 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
       Database.InsertIntoNamespace(
           CurScope, ShortName, TypeofCXXRecordDecl(CTD->getTemplatedDecl()));
       VisitClassTemplateDecl(CTD);
+    } else if (auto *_ = llvm::dyn_cast<CXXDeductionGuideDecl>(*Iter)) {
+      /* ignored for now. */
     } else if (auto *FD = llvm::dyn_cast<FunctionDecl>(*Iter)) {
       std::string ShortName;
       FunctionMember(ShortName, FD);

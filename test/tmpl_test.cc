@@ -39,4 +39,20 @@ TEST_F(TestHelper, ClsNonTypeParm) {
   CompareTuple(Actual[0], GlobalRecord);
 }
 
+TEST_F(TestHelper, DependentSizedArray) {
+  PrepareParsingCXX("template <typename T, int N> struct array { T buf[N]; };");
+
+  const char *Member[3] = {
+      /* array<template::typename::T, template::decltype::i> */
+      "5arrayIN8template8typename1TEN8template8decltype1iEE",
+      "3buf",
+      /* public: T buf[]; */
+      "6public24A_N8template8typename1TE",
+  };
+
+  RunAction;
+  auto &Actual = GetClasses(DB);
+  CompareTuple(Actual[0], Member);
+}
+
 } // namespace clang

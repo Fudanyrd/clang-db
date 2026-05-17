@@ -137,6 +137,9 @@ struct ManglingTypeVisitor
   X(OO_Delete, "delete", "dl")                                                 \
   X(OO_Array_New, "new[]", "na")                                               \
   X(OO_Array_Delete, "delete[]", "da")                                         \
+  X(OO_Arrow, "->", "pt")                                                      \
+  X(OO_AmpAmp, "&&", "aa")                                                     \
+  X(OO_PipePipe, "||", "oo")                                                   \
   X(OO_GreaterGreater, ">>", "rs")
 
 } /* namespace clang */
