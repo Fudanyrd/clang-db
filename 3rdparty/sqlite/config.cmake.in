@@ -1,0 +1,32 @@
+#[=============================================================================[.rst:
+Suggested usage
+===============
+
+find_package(sqlite CONFIG)
+if (SQLITE_FOUND)
+  target_link_libraries(your_target PRIVATE ${SQLITE_LIBRARY})
+endif()
+
+#]=============================================================================]
+@PACKAGE_INIT@
+cmake_minimum_required(VERSION 3.15)
+
+# Detect Installation Path
+get_filename_component(SQLITE_PREFIX "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(SQLITE_PREFIX "${SQLITE_PREFIX}" PATH)
+get_filename_component(SQLITE_PREFIX "${SQLITE_PREFIX}" PATH)
+get_filename_component(SQLITE_PREFIX "${SQLITE_PREFIX}" PATH)
+
+if(SQLITE_PREFIX STREQUAL "/")
+  set(SQLITE_PREFIX "")
+endif()
+
+set(SQLITE_INCLUDE_DIR "${SQLITE_PREFIX}/include")
+set(SQLITE_LIBRARY "${SQLITE_PREFIX}/lib/libsqlite3.a")
+
+if (TARGET sqlite3)
+  set(SQLITE_LIBRARY sqlite3)
+endif()
+
+set(SQLITE_FOUND TRUE)
+unset(SQLITE_PREFIX)
