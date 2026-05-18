@@ -8,6 +8,9 @@
 #include <tuple>
 #include <vector>
 
+/* Sqlite3 CXX API */
+#include <sqlite_cxx.hh>
+
 #include "common.h"
 
 namespace clang {
@@ -151,6 +154,29 @@ public:
     Symbols.emplace_back(Name, File, Line);
     return 0;
   }
+};
+
+class SqliteDatabase : public DatabaseInterface {
+private:
+  ::sqlite::SQLite3 DB;
+
+public:
+  SqliteDatabase() : DB(0) {}
+  SqliteDatabase(const char *Filename) : DB(Filename) {}
+  ~SqliteDatabase() override = default;
+
+  std::unique_ptr<TableIterator> ClassBegin() override;
+  std::unique_ptr<TableIterator> NamespaceBegin() override;
+
+  int TransactionBegin() override;
+  int Commit() override;
+
+  int InsertIntoClass(std::string_view ClassName, std::string_view Name,
+                      std::string_view Type) override;
+  int InsertIntoNamespace(std::string_view NamespaceName,
+                          std::string_view Child,
+                          std::string_view Type) override;
+  int InsertSymbol(std::string_view Name, std::string File, int Line) override;
 };
 
 } // namespace database _CLANGDB_VISIBILITY

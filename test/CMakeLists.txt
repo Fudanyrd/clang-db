@@ -14,7 +14,7 @@ if(CLANGDB_BUILD_UNITTESTS)
     string(REPLACE ".cc" "" testname ${filename})
 
     add_executable(${testname} ${source_file})
-    target_link_libraries(${testname} clangdb-aux clangdb gtest gmock_main clang clang-cpp LLVM)
+    target_link_libraries(${testname} clangdb-aux clangdb sqlite3 gtest gmock_main clang clang-cpp LLVM)
 
     add_dependencies(run-tests run-${testname})
     add_custom_target("run-${testname}" COMMAND "${CMAKE_CURRENT_BINARY_DIR}/${testname}"

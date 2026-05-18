@@ -36,7 +36,8 @@ add_subdirectory(include)
 add_subdirectory(3rdparty)
 
 # library
-set(CLANGDB_PRIVATE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(CLANGDB_PRIVATE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include 
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/sqlite)
 add_subdirectory(src)
 
 # tools.

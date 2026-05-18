@@ -69,7 +69,8 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
     /**
      * Opens an in-memory database. This is useful for testing.
      */
-    SQLite3(int magic, int rest_flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) {
+    SQLite3(int magic,
+            int rest_flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) {
       if (sqlite3_open_v2(nullptr, &db, SQLITE_OPEN_MEMORY | rest_flags,
                           nullptr) != SQLITE_OK) {
         abort(); /* This should never happen. */

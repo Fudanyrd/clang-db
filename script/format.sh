@@ -15,5 +15,8 @@ for srcdir in include src test bin; do
   cd ..
 done
 
+# 3rdparty/sqlite: only format our code.
+clang-format --style="file:$config_file" -i 3rdparty/sqlite/*.cc 3rdparty/sqlite/*.hh
+
 exit 0
 
