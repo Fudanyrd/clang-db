@@ -18,13 +18,6 @@ class TestHelper; /* Make our test helper a friend. */
 
 namespace database _CLANGDB_VISIBILITY {
 
-class TableIterator {
-public:
-  virtual ~TableIterator() = default;
-  virtual int
-  Next(std::tuple<std::string, std::string, std::string> &OutputTuple) = 0;
-};
-
 class DatabaseInterface {
 protected:
   SourceManager *SrcMgr;
@@ -36,9 +29,6 @@ public:
 
   virtual int TransactionBegin() = 0;
   virtual int Commit() = 0;
-
-  virtual std::unique_ptr<TableIterator> ClassBegin() = 0;
-  virtual std::unique_ptr<TableIterator> NamespaceBegin() = 0;
 
   /**
    * Zero value indicates success;
@@ -87,35 +77,8 @@ private:
   friend class ::clang::TestHelper;
 
 public:
-  struct Iterator : public TableIterator {
-    std::vector<std::tuple<std::string, std::string, std::string>> &Table;
-    size_t Offset;
-
-    Iterator(
-        std::vector<std::tuple<std::string, std::string, std::string>> &Table)
-        : Table(Table), Offset(0) {}
-
-    int Next(std::tuple<std::string, std::string, std::string> &OutputTuple)
-        override {
-      if (Offset >= Table.size()) {
-        return 1; /* No more records */
-      }
-      OutputTuple = Table[Offset];
-      Offset++;
-      return 0;
-    }
-  };
-
   InMemoryDatabase() = default;
   ~InMemoryDatabase() override = default;
-
-  std::unique_ptr<TableIterator> ClassBegin() override {
-    return std::make_unique<Iterator>(Classes);
-  }
-
-  std::unique_ptr<TableIterator> NamespaceBegin() override {
-    return std::make_unique<Iterator>(Namespaces);
-  }
 
   int TransactionBegin() override {
     InTransaction = true;
@@ -157,16 +120,21 @@ public:
 };
 
 class SqliteDatabase : public DatabaseInterface {
+
+/* Name of tables in the database. */
+#define ClangDBTableClass "class"
+#define ClangDBTableNamespace "namespace"
+#define ClangDBTableSymbol "symbol"
+
 private:
   ::sqlite::SQLite3 DB;
 
-public:
-  SqliteDatabase() : DB(0) {}
-  SqliteDatabase(const char *Filename) : DB(Filename) {}
-  ~SqliteDatabase() override = default;
+  void CreateTableAndIndex();
 
-  std::unique_ptr<TableIterator> ClassBegin() override;
-  std::unique_ptr<TableIterator> NamespaceBegin() override;
+public:
+  SqliteDatabase() : DB(0) { CreateTableAndIndex(); }
+  SqliteDatabase(const char *Filename) : DB(Filename) { CreateTableAndIndex(); }
+  ~SqliteDatabase() override = default;
 
   int TransactionBegin() override;
   int Commit() override;

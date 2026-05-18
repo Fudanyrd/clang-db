@@ -5,3 +5,5 @@ set(gtest_disable_pthreads ON)
 if (CLANGDB_BUILD_UNITTESTS)
   add_subdirectory(gtest)
 endif()
+
+add_subdirectory(sqlite)

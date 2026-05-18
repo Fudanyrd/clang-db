@@ -30,25 +30,104 @@ int SqliteDatabase::Commit() {
 int SqliteDatabase::InsertIntoClass(std::string_view ClassName,
                                     std::string_view Name,
                                     std::string_view Type) {
-  return 1; /* Not implemented yet. */
+  static constexpr char STMT[] = "INSERT INTO " ClangDBTableClass " (?, ?, ?);";
+  ::sqlite::SQLite3Stmt SqliteStmt = DB.prepare(STMT, sizeof(STMT) - 1);
+  if (!SqliteStmt) {
+    return 1; /* Failed to prepare statement. */
+  }
+
+  if (::sqlite::Binder<1, std::string_view, std::string_view,
+                       std::string_view>::bind(SqliteStmt, ClassName, Name,
+                                               Type)) {
+    return 1; /* Failed to bind parameters. */
+  }
+  if (SqliteStmt.step() != SQLITE_DONE) {
+    return 1; /* Failed to execute statement. */
+  }
+  return 0;
 }
 
 int SqliteDatabase::InsertIntoNamespace(std::string_view NamespaceName,
                                         std::string_view Child,
                                         std::string_view Type) {
-  return 1; /* Not implemented yet. */
+  static constexpr char STMT[] =
+      "INSERT INTO " ClangDBTableNamespace " (?, ?, ?);";
+  ::sqlite::SQLite3Stmt SqliteStmt = DB.prepare(STMT, sizeof(STMT) - 1);
+  if (!SqliteStmt) {
+    return 1; /* Failed to prepare statement. */
+  }
+  if (::sqlite::Binder<1, std::string_view, std::string_view,
+                       std::string_view>::bind(SqliteStmt, NamespaceName, Child,
+                                               Type)) {
+    return 1; /* Failed to bind parameters. */
+  }
+  if (SqliteStmt.step() != SQLITE_DONE) {
+    return 1; /* Failed to execute statement. */
+  }
+  return 0; /* Not implemented yet. */
 }
 
 int SqliteDatabase::InsertSymbol(std::string_view Name, std::string File,
                                  int Line) {
-  return 1; /* Not implemented yet. */
+  static constexpr char STMT[] =
+      "INSERT INTO " ClangDBTableSymbol " (?, ?, ?);";
+  ::sqlite::SQLite3Stmt SqliteStmt = DB.prepare(STMT, sizeof(STMT) - 1);
+  if (!SqliteStmt) {
+    return 1; /* Failed to prepare statement. */
+  }
+  if (::sqlite::Binder<1, std::string_view, std::string_view, int>::bind(
+          SqliteStmt, Name, File, Line)) {
+    return 1; /* Failed to bind parameters. */
+  }
+
+  if (SqliteStmt.step() != SQLITE_DONE) {
+    return 1; /* Failed to execute statement. */
+  }
+  return 0; /* Not implemented yet. */
 }
 
-std::unique_ptr<TableIterator> SqliteDatabase::ClassBegin() {
-  return nullptr; /* Not implemented yet. */
-}
-std::unique_ptr<TableIterator> SqliteDatabase::NamespaceBegin() {
-  return nullptr; /* Not implemented yet. */
+void SqliteDatabase::CreateTableAndIndex() {
+#define ExecuteSQL(sqlStmt)                                                    \
+  do {                                                                         \
+    ::sqlite::SQLite3Stmt Stmt = DB.prepare(sqlStmt, sizeof(sqlStmt) - 1);     \
+    if (!Stmt) {                                                               \
+      clangdb_check_internal(false &&                                          \
+                             "Failed to prepare statement: " sqlStmt);         \
+    }                                                                          \
+    if (Stmt.step() != SQLITE_DONE) {                                          \
+      clangdb_check_internal(false &&                                          \
+                             "Failed to execute statement: " sqlStmt);         \
+    }                                                                          \
+  } while (0)
+
+  ExecuteSQL("CREATE TABLE IF NOT EXISTS " ClangDBTableClass " ("
+             "  name TEXT NOT NULL,"
+             "  member TEXT NOT NULL,"
+             "  type TEXT NOT NULL"
+             ");");
+
+  ExecuteSQL("CREATE TABLE IF NOT EXISTS " ClangDBTableNamespace " ("
+             "  name TEXT NOT NULL,"
+             "  member TEXT NOT NULL,"
+             "  type TEXT NOT NULL"
+             ");");
+
+  ExecuteSQL("CREATE TABLE IF NOT EXISTS " ClangDBTableSymbol " ("
+             "  name TEXT NOT NULL,"
+             "  file TEXT NOT NULL,"
+             "  line INTEGER NOT NULL"
+             ");");
+
+  /* Create indices */
+  ExecuteSQL("CREATE INDEX IF NOT EXISTS idx_class_name ON " ClangDBTableClass
+             " (name, member);");
+
+  ExecuteSQL(
+      "CREATE INDEX IF NOT EXISTS idx_namespace_name ON " ClangDBTableNamespace
+      "(name, member);");
+
+  ExecuteSQL("CREATE INDEX IF NOT EXISTS idx_symbol_name ON " ClangDBTableSymbol
+             " (name);");
 }
 
 } /* namespace database _CLANGDB_VISIBILITY */

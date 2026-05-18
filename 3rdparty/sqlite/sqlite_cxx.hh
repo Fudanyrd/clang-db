@@ -8,11 +8,38 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <sys/fcntl.h>
+#include <utility>
 
 #include "sqlite3.h"
 
 namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
+
+  struct SQLite3Stmt;
+
+  template <typename T> inline int bind(SQLite3Stmt & stmt, int index, T value);
+
+  template <int Idx, typename... Args> struct Binder;
+
+  template <int Idx, typename Head, typename... RestArgs>
+  struct Binder<Idx, Head, RestArgs...> {
+    static int bind(SQLite3Stmt &stmt, const Head &head,
+                    const RestArgs &...rest) {
+      int res = ::sqlite::bind(stmt, Idx, head);
+      if (res != SQLITE_OK) {
+        return res;
+      }
+      return Binder<Idx + 1, RestArgs...>::bind(stmt, rest...);
+    }
+  };
+
+  template <int Idx, typename Head> struct Binder<Idx, Head> {
+    static int bind(SQLite3Stmt &stmt, const Head &head) {
+      return ::sqlite::bind(stmt, Idx, head);
+    }
+  };
 
   struct SQLite3Stmt {
   private:
@@ -46,6 +73,14 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
     }
 
     int step(void) const { return sqlite3_step(stmt); }
+
+    int bind(int index, const char *value, size_t len) const {
+      return sqlite3_bind_text(stmt, index, value, len, SQLITE_STATIC);
+    }
+    int bind(int index, std::string_view value) const {
+      return sqlite3_bind_text(stmt, index, value.data(), value.size(),
+                               SQLITE_STATIC);
+    }
   };
 
   struct SQLite3 {
@@ -109,6 +144,48 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
     int errcode() const { return sqlite3_errcode(db); }
     const char *err_message() const { return sqlite3_errmsg(db); }
   };
+
+  template <>
+  inline int bind(SQLite3Stmt & stmt, int index, const char *value) {
+    return stmt.bind(index, value, strlen(value));
+  }
+  template <>
+  inline int bind(SQLite3Stmt & stmt, int index, std::string_view value) {
+    return stmt.bind(index, value.data(), value.size());
+  }
+
+  template <>
+  inline int bind<const std::string &>(SQLite3Stmt & stmt, int index,
+                                       const std::string &value) {
+    return stmt.bind(index, value.data(), value.size());
+  }
+
+  template <> inline int bind(SQLite3Stmt & stmt, int index, int value) {
+    return sqlite3_bind_int(stmt.get(), index, value);
+  }
+
+  template <>
+  inline int bind(SQLite3Stmt & stmt, int index, sqlite3_int64 value) {
+    return sqlite3_bind_int64(stmt.get(), index, value);
+  }
+
+  template <> inline int bind(SQLite3Stmt & stmt, int index, std::nullptr_t) {
+    return sqlite3_bind_null(stmt.get(), index);
+  }
+
+  template <> inline int bind(SQLite3Stmt & stmt, int index, double value) {
+    return sqlite3_bind_double(stmt.get(), index, value);
+  }
+  template <> inline int bind(SQLite3Stmt & stmt, int index, float value) {
+    return sqlite3_bind_double(stmt.get(), index, static_cast<double>(value));
+  }
+
+  template <>
+  inline int bind(SQLite3Stmt & stmt, int index,
+                  std::pair<const void *, size_t> value) {
+    return sqlite3_bind_blob(stmt.get(), index, value.first, value.second,
+                             SQLITE_STATIC);
+  }
 
 } /* namespace sqlite */
 

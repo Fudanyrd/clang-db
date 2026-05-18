@@ -1,6 +1,10 @@
 #ifndef __CLANGDB_H__
 #define __CLANGDB_H__ (1)
 
+#if defined _GLIBCXX_ASSERTIONS
+#undef NDEBUG
+#endif /* _GLIBCXX_ASSERTIONS */
+
 #include <cstdlib>
 
 #include "common.h"
