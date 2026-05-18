@@ -121,21 +121,30 @@ struct BuildDatabaseConsumer : public ASTConsumer {
 };
 
 struct BuildDatabaseAction : public PluginASTAction {
-  DatabaseInterface *DB;
+  /**
+   * For this QualPtr, its lowest bit is used
+   * to indicate whether it should be `delete`d
+   * in destructor of {@link BuildDatabaseAction}.
+   */
+  /* DatabaseInterface * */ QualPtr DB;
 
-  BuildDatabaseAction(void) : DB(nullptr) {}
+  BuildDatabaseAction(void) : DB() {}
   BuildDatabaseAction(DatabaseInterface &Database) : DB(&Database) {}
+
+  ~BuildDatabaseAction() override {
+    if (DB.get<0>()) {
+      delete DB.getPtr<DatabaseInterface>();
+    }
+  }
 
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  StringRef InFile) override {
-    return std::make_unique<BuildDatabaseConsumer>(this->DB);
+    return std::make_unique<BuildDatabaseConsumer>(
+        DB.getPtr<DatabaseInterface>());
   }
 
   bool ParseArgs(const CompilerInstance &CI,
-                 const std::vector<std::string> &args) override {
-    DB = new InMemoryDatabase();
-    return true;
-  }
+                 const std::vector<std::string> &args) override;
 };
 
 } /* namespace database _CLANGDB_VISIBILITY */

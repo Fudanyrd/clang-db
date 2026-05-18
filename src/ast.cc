@@ -66,5 +66,53 @@ bool BuildVisitor::TraverseTranslationUnitDecl(TranslationUnitDecl *TU) {
   return true;
 }
 
+/**
+ * Example usage:
+ * clang -cc1 -load /path/to/this/plugin.so -plugin build-db
+ * -plugin-arg-build-db -o=output.db
+ */
+bool BuildDatabaseAction::ParseArgs(const CompilerInstance &CI,
+                                    const std::vector<std::string> &args) {
+  bool PrintHelp = false;
+  const char *OFile = "";
+
+  for (const auto &Arg : args) {
+    if (Arg == "-h" || Arg == "--help") {
+      PrintHelp = true;
+    } else if (strncmp(Arg.c_str(), "-o=", 3) == 0) {
+      OFile = Arg.substr(3).c_str();
+    } else {
+      llvm::errs() << "Unknown argument: " << Arg << "\n";
+      return false;
+    }
+  }
+
+  if (PrintHelp) {
+    llvm::errs()
+        << "Usage: clang-db [options]\n"
+           "Options:\n"
+           "  -o=<output_file>   Specify the output file for the database\n"
+           "  -h, --help         Show this help message\n";
+    return false;
+  }
+
+  if (*OFile == 0x0) {
+    llvm::errs() << "Output file not specified. Use in-memory database.\n";
+    this->DB = QualPtr(new InMemoryDatabase());
+  } else {
+    SqliteDatabase *DBInstance = new SqliteDatabase(OFile);
+    DB = QualPtr(DBInstance);
+
+    if (!(*DBInstance)) {
+      llvm::errs() << "Failed to open database file: " << OFile << "\n";
+      delete DBInstance;
+      return false;
+    }
+  }
+
+  DB.set<0>(true); /* should delete the database in destructor */
+  return true;
+}
+
 } /* namespace database _CLANGDB_VISIBILITY */
 } /* namespace clang */

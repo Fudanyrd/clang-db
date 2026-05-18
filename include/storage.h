@@ -18,7 +18,53 @@ class TestHelper; /* Make our test helper a friend. */
 
 namespace database _CLANGDB_VISIBILITY {
 
-class DatabaseInterface {
+struct DatabaseInterface;
+
+/**
+ * The motivation for this class is that storing
+ * a pointer and an extra bit will waste (at least)
+ * one byte. Therefore, even for 32-bit systems,
+ * the pointer's lower two bits shall be zero.
+ */
+struct QualPtr {
+private:
+  static constexpr uintptr_t PtrMask = uintptr_t(0x3);
+  uintptr_t Ptr;
+
+public:
+  template <typename T>
+  inline QualPtr(T *Pt) : Ptr(reinterpret_cast<uintptr_t>(Pt)) {
+    static_assert((alignof(T) & PtrMask) == 0,
+                  "Pointer's lower two bits must be zero");
+  }
+
+  QualPtr() : Ptr(0) {
+    static_assert(sizeof(QualPtr) == sizeof(void *),
+                  "QualPtr should be the same size as a pointer");
+  }
+
+  template <typename T> inline T *getPtr() const {
+    static_assert((alignof(T) & PtrMask) == 0,
+                  "Pointer's lower two bits must be zero");
+    return reinterpret_cast<T *>(Ptr & (~PtrMask));
+  }
+
+  template <int Bit> bool get() const {
+    static_assert(Bit == 0 || Bit == 1, "Bit must be 0 or 1");
+    return (Ptr >> Bit) & 0x1;
+  }
+
+  template <int Bit> void set(bool Value = true) {
+    static_assert(Bit == 0 || Bit == 1, "Bit must be 0 or 1");
+    if (Value) {
+      Ptr |= (uintptr_t(1) << Bit);
+    } else {
+      Ptr &= ~(uintptr_t(1) << Bit);
+    }
+  }
+};
+
+class alignas(void *) DatabaseInterface {
 protected:
   SourceManager *SrcMgr;
 
@@ -132,6 +178,7 @@ private:
   void CreateTableAndIndex();
 
 public:
+  operator bool() const { return (bool)DB; }
   SqliteDatabase() : DB(0) { CreateTableAndIndex(); }
   SqliteDatabase(const char *Filename) : DB(Filename) { CreateTableAndIndex(); }
   ~SqliteDatabase() override = default;

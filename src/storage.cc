@@ -30,7 +30,8 @@ int SqliteDatabase::Commit() {
 int SqliteDatabase::InsertIntoClass(std::string_view ClassName,
                                     std::string_view Name,
                                     std::string_view Type) {
-  static constexpr char STMT[] = "INSERT INTO " ClangDBTableClass " (?, ?, ?);";
+  static constexpr char STMT[] =
+      "INSERT INTO " ClangDBTableClass " VALUES (?, ?, ?);";
   ::sqlite::SQLite3Stmt SqliteStmt = DB.prepare(STMT, sizeof(STMT) - 1);
   if (!SqliteStmt) {
     return 1; /* Failed to prepare statement. */
@@ -39,6 +40,7 @@ int SqliteDatabase::InsertIntoClass(std::string_view ClassName,
   if (::sqlite::Binder<1, std::string_view, std::string_view,
                        std::string_view>::bind(SqliteStmt, ClassName, Name,
                                                Type)) {
+    llvm::errs() << this->DB.err_message();
     return 1; /* Failed to bind parameters. */
   }
   if (SqliteStmt.step() != SQLITE_DONE) {
@@ -51,7 +53,7 @@ int SqliteDatabase::InsertIntoNamespace(std::string_view NamespaceName,
                                         std::string_view Child,
                                         std::string_view Type) {
   static constexpr char STMT[] =
-      "INSERT INTO " ClangDBTableNamespace " (?, ?, ?);";
+      "INSERT INTO " ClangDBTableNamespace " VALUES (?, ?, ?);";
   ::sqlite::SQLite3Stmt SqliteStmt = DB.prepare(STMT, sizeof(STMT) - 1);
   if (!SqliteStmt) {
     return 1; /* Failed to prepare statement. */
@@ -70,7 +72,7 @@ int SqliteDatabase::InsertIntoNamespace(std::string_view NamespaceName,
 int SqliteDatabase::InsertSymbol(std::string_view Name, std::string File,
                                  int Line) {
   static constexpr char STMT[] =
-      "INSERT INTO " ClangDBTableSymbol " (?, ?, ?);";
+      "INSERT INTO " ClangDBTableSymbol " VALUES (?, ?, ?);";
   ::sqlite::SQLite3Stmt SqliteStmt = DB.prepare(STMT, sizeof(STMT) - 1);
   if (!SqliteStmt) {
     return 1; /* Failed to prepare statement. */
@@ -87,6 +89,10 @@ int SqliteDatabase::InsertSymbol(std::string_view Name, std::string File,
 }
 
 void SqliteDatabase::CreateTableAndIndex() {
+  if (!DB) {
+    clangdb_check_internal(false && "Failed to open database.");
+  }
+
 #define ExecuteSQL(sqlStmt)                                                    \
   do {                                                                         \
     ::sqlite::SQLite3Stmt Stmt = DB.prepare(sqlStmt, sizeof(sqlStmt) - 1);     \
