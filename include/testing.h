@@ -25,7 +25,6 @@ public:
 
   TestHelper()
       : Invocation(std::make_shared<CompilerInvocation>()), Instance() {
-    Invocation = Invocation;
     Invocation->getFrontendOpts().ProgramAction = frontend::PluginAction;
     Invocation->getTargetOpts().Triple = TRIPLE;
 

@@ -53,31 +53,6 @@ std::string MangleType(const Type *TypePtr) {
     abort();
   }
 
-/**
- * FIXME: map "..." to "z"
- */
-#define BuiltInTyKindToString(X)                                               \
-  X(SChar, "a")      /* signed char */                                         \
-  X(Bool, "b")       /* bool or _Bool */                                       \
-  X(Char_S, "c")     /* char */                                                \
-  X(Double, "d")     /* double */                                              \
-  X(LongDouble, "e") /* long double */                                         \
-  X(Float, "f")      /* float */                                               \
-  X(Float128, "g")   /* __float128 */                                          \
-  X(UChar, "h")      /* unsigned char */                                       \
-  X(Int, "i")        /* int */                                                 \
-  X(UInt, "j")       /* unsigned int */                                        \
-  X(Long, "l")       /* long int */                                            \
-  X(ULong, "m")      /* unsigned long int */                                   \
-  X(Int128, "n")     /* __int128 */                                            \
-  X(UInt128, "o")    /* unsigned __int128 */                                   \
-  X(Short, "s")      /* (signed) short */                                      \
-  X(UShort, "t")     /* unsigned short */                                      \
-  X(Void, "v")       /* void */                                                \
-  X(WChar_S, "w")    /* wchar_t */                                             \
-  X(LongLong, "x")   /* long long int */                                       \
-  X(NullPtr, "Dn")   /* std::nullptr_t, decltype(nullptr) */                   \
-  X(ULongLong, "y")  /* unsigned long long int */
 #define CaseStmt(TyKind, Str)                                                  \
   case (BuiltinType::Kind::TyKind): {                                          \
     return Str;                                                                \
@@ -220,7 +195,7 @@ std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
     if (auto *ND = dyn_cast<const NamespaceDecl>(Ptr)) {
       ret += EncodeNs(ND->getName());
     } else if (auto *RD = dyn_cast<const CXXRecordDecl>(Ptr)) {
-      ret += EncodeNs(RD->getName());
+      ret += EncodeRecordDecl(RD);
     } else if (auto *LSD = dyn_cast<const LinkageSpecDecl>(Ptr)) {
       if (LSD->getLanguage() == LinkageSpecLanguageIDs::C) {
         ret = "6extern"; /* ignore all previous namespaces. */
@@ -237,6 +212,58 @@ std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
   return ret;
 }
 
+static void MangleTemplateArgument(std::string &Ret,
+                                   const TemplateArgument &Arg) {
+  switch (Arg.getKind()) {
+  case TemplateArgument::ArgKind::Null:
+    Ret += "NE"; /* empty template argument */
+    break;
+  case TemplateArgument::ArgKind::Type:
+    Ret += MangleType(Arg.getAsType().getTypePtr());
+    break;
+  case TemplateArgument::ArgKind::NullPtr:
+    Ret += "Dn"; /* nullptr_t */
+    break;
+  case TemplateArgument::ArgKind::Integral: {
+    llvm::APInt Value = Arg.getAsIntegral();
+    char buf[32];
+    sprintf(buf, "Li%zuE", Value.getZExtValue());
+    Ret += buf;
+    break;
+  }
+  case TemplateArgument::ArgKind::Template:
+    Ret += "N" + MangleTemplateName(Arg.getAsTemplate()) + "E";
+    break;
+  case TemplateArgument::ArgKind::Pack:
+    for (const auto &PackArg : Arg.getPackAsArray()) {
+      MangleTemplateArgument(Ret, PackArg);
+    }
+    break;
+  default:
+    llvm::errs() << "Error: unknown template argument kind: " << Arg.getKind()
+                 << "\n";
+    Ret += "NE";
+  }
+}
+
+std::string MangleTemplateArgumentList(const TemplateArgumentList &List) {
+  std::string Ret = "I";
+  for (unsigned i = 0; i < List.size(); i++) {
+    const auto &Arg = List[i];
+    MangleTemplateArgument(Ret, Arg);
+  }
+  return Ret + "E";
+}
+
+std::string EncodeRecordDecl(const TagDecl *RD) {
+  std::string Ret = EncodeNs(RD->getName());
+  if (const auto *ClsSpecDecl =
+          dyn_cast<const ClassTemplateSpecializationDecl>(RD)) {
+    Ret += MangleTemplateArgumentList(ClsSpecDecl->getTemplateArgs());
+  }
+  return Ret;
+}
+
 std::string MangleRecordDecl(const TagDecl *RD) {
   std::vector<DeclContext *> Nesting;
   const DeclContext *Iter = RD->getDeclContext();
@@ -251,8 +278,17 @@ std::string MangleRecordDecl(const TagDecl *RD) {
 
   std::reverse(Nesting.begin(), Nesting.end());
   std::string ret = MangleNamespaceStack(Nesting);
-  ret += EncodeNs(RD->getName());
+  ret += EncodeRecordDecl(RD);
   return ret;
+}
+
+std::string
+MangleTemplateArgumentList(const llvm::ArrayRef<TemplateArgument> &Args) {
+  std::string Ret = "I";
+  for (const auto &Arg : Args) {
+    MangleTemplateArgument(Ret, Arg);
+  }
+  return Ret + "E";
 }
 
 std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS) {
@@ -260,7 +296,7 @@ std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS) {
   if (const auto *NSD = (NNS->getAsNamespace())) {
     ret += EncodeNs(NSD->getName());
   } else if (const auto *RD = (NNS->getAsRecordDecl())) {
-    ret += EncodeNs(RD->getName());
+    ret += EncodeRecordDecl(RD);
   } else if (const auto *Ty = NNS->getAsType()) {
     std::string Inc = MangleType(Ty);
     assert(Inc.size() >= 2);

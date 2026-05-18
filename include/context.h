@@ -101,6 +101,10 @@ private:
     MangleFunctionParmList(Dest, Proto);
   }
 
+  void CXXRecordMember(std::string &Dest, CXXRecordDecl *RD) {
+    Dest += EncodeRecordDecl(RD);
+  }
+
   void CXXMethodMember(std::string &Dest, CXXMethodDecl *MD) {
     FunctionMember(Dest, MD);
   }

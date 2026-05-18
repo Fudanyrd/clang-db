@@ -36,6 +36,11 @@ std::string EncodeFunctionName(const FunctionDecl *FD);
 std::string MangleType(const Type *TypePtr);
 
 /**
+ * @return the short name, comprising of name and template arguments
+ * of a recrod decl.
+ */
+std::string EncodeRecordDecl(const TagDecl *RD);
+/**
  * @return the wholename (i.e. including the namespaces) of RD.
  */
 std::string MangleRecordDecl(const TagDecl *RD);
@@ -47,6 +52,9 @@ std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS);
 void MangleFunctionParmList(std::string &Dest, const FunctionProtoType *Proto);
 
 std::string MangleTemplateParameterList(const TemplateParameterList &List);
+std::string MangleTemplateArgumentList(const TemplateArgumentList &List);
+std::string
+MangleTemplateArgumentList(const llvm::ArrayRef<TemplateArgument> &Args);
 
 std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
                                  size_t StartIdx = 0);
@@ -93,6 +101,29 @@ struct ManglingTypeVisitor
 };
 
 } // namespace database _CLANGDB_VISIBILITY
+
+#define BuiltInTyKindToString(X)                                               \
+  X(SChar, "a")      /* signed char */                                         \
+  X(Bool, "b")       /* bool or _Bool */                                       \
+  X(Char_S, "c")     /* char */                                                \
+  X(Double, "d")     /* double */                                              \
+  X(LongDouble, "e") /* long double */                                         \
+  X(Float, "f")      /* float */                                               \
+  X(Float128, "g")   /* __float128 */                                          \
+  X(UChar, "h")      /* unsigned char */                                       \
+  X(Int, "i")        /* int */                                                 \
+  X(UInt, "j")       /* unsigned int */                                        \
+  X(Long, "l")       /* long int */                                            \
+  X(ULong, "m")      /* unsigned long int */                                   \
+  X(Int128, "n")     /* __int128 */                                            \
+  X(UInt128, "o")    /* unsigned __int128 */                                   \
+  X(Short, "s")      /* (signed) short */                                      \
+  X(UShort, "t")     /* unsigned short */                                      \
+  X(Void, "v")       /* void */                                                \
+  X(WChar_S, "w")    /* wchar_t */                                             \
+  X(LongLong, "x")   /* long long int */                                       \
+  X(NullPtr, "Dn")   /* std::nullptr_t, decltype(nullptr) */                   \
+  X(ULongLong, "y")  /* unsigned long long int */
 
 /**
  * Hint: clang::OverloadedOperatorKind.

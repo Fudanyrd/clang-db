@@ -109,13 +109,17 @@ TEST_F(TestHelper, BaseClasses) {
       "class A{}; class B{}; class C : public virtual A, protected B {};\n"
       "struct D { struct Inner : public virtual A {}; };\n");
   const char *ExpectedNs[][3] = {
-      {"", "1A", "5class"},                                      /* class A */
-      {"", "1B", "5class"},                                      /* class B */
-      {"", "1C", "5class7virtual6public7virtual1A9protected1B"}, /* class C */
-      {"", "1D", "6struct"},                                     /* struct D */
+      {"", "1A", "5class"}, /* class A */
+      {"", "1B", "5class"}, /* class B */
+      {"", "1C",
+       "5class7virtual"       /* class C */
+       "6public7virtual4N1AE" /* public virtual A */
+       "9protected4N1BE"},    /* protected B */
+      {"", "1D", "6struct"},  /* struct D */
   };
   const char *ExpectedCLS[3] = {
-      "1D", "5Inner", "6struct6public7virtual6public7virtual1A", /* D::Inner */
+      "1D", "5Inner",
+      "6struct6public7virtual6public7virtual4N1AE", /* D::Inner */
   };
 
   RunAction;

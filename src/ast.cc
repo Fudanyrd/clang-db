@@ -24,7 +24,7 @@ void EncodeBaseClasses(std::string &Dest, const CXXRecordDecl *RD) {
     }
     Dest += EncodeAccessSpecifier(Iter->getAccessSpecifier());
     Dest += (Iter->isVirtual() ? "7virtual" : "");
-    Dest += MangleRecordDecl(Base);
+    Dest += EncodeNs("N" + MangleRecordDecl(Base) + "E");
   }
 }
 

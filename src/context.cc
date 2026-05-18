@@ -38,7 +38,8 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
     } else if (auto *LSD = llvm::dyn_cast<LinkageSpecDecl>(*Iter)) {
       VisitLinkageSpecDecl(LSD);
     } else if (auto *RD = llvm::dyn_cast<CXXRecordDecl>(*Iter)) {
-      std::string ShortName = EncodeNs(RD->getName());
+      std::string ShortName;
+      CXXRecordMember(ShortName, RD);
       InsertIntoNamespace(CurScope, ShortName, TypeofCXXRecordDecl(RD), RD);
       VisitCXXRecordDecl(RD);
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(*Iter)) {
@@ -77,7 +78,8 @@ void DatabaseContext::IterateClass(CXXRecordDecl *RD) {
   /* Must skip the first one -- the struct/class body */
   for (Iter++; Iter != End; Iter++) {
     if (auto *RD = llvm::dyn_cast<CXXRecordDecl>(*Iter)) {
-      std::string ShortName = EncodeNs(RD->getName());
+      std::string ShortName;
+      CXXRecordMember(ShortName, RD);
       InsertIntoClass(CurrentScope(), ShortName,
                       TypeofLocalCXXRecordDecl(RD, Access), RD);
       VisitCXXRecordDecl(RD);

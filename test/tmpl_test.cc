@@ -55,4 +55,25 @@ TEST_F(TestHelper, DependentSizedArray) {
   CompareTuple(Actual[0], Member);
 }
 
+TEST_F(TestHelper, TemplateBaseClass) {
+  PrepareParsingCXX(
+      "template <typename T, typename U>\n"
+      "struct A {  struct Base { virtual U val() = 0; }; };\n"
+      "struct B : public A<int,int>::Base { int val() override; }; \n");
+
+  const char *GobalRecord[3] = {
+      "",
+      "1B",
+      "6struct"
+      "7virtual"
+      "6public13N1AIiiE4BaseE" /* public: A<int, int>::Base */,
+  };
+
+  RunAction;
+  auto &Actual = GetNamespaces(DB);
+  ASSERT_EQ(Actual.size(), 2U);
+  std::sort(Actual.begin(), Actual.end());
+  CompareTuple(Actual[1], GobalRecord);
+}
+
 } // namespace clang

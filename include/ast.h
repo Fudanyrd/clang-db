@@ -68,6 +68,8 @@ inline const char *EncodeAccessSpecifier(AccessSpecifier Access) {
     return "9protected";
   case AS_private:
     return "7private";
+  default:
+    break;
   }
   /* AS_none: */
   llvm_unreachable("Unknown AccessSpecifier");
