@@ -76,4 +76,29 @@ TEST_F(TestHelper, TemplateBaseClass) {
   CompareTuple(Actual[1], GobalRecord);
 }
 
+TEST_F(TestHelper, TemplateBaseClass2) {
+  PrepareParsingCXX("template <typename T>\n"
+                    "struct foo {\n"
+                    "  template <typename U, int> struct bar {\n"
+                    "    struct base { };\n"
+                    "  };\n"
+                    "};\n"
+                    "\n"
+                    "struct ext : public foo<int>::bar<float,42>::base { };");
+
+  const char *GobalRecord[3] = {
+      "", "3ext",
+      "6struct7virtual6public"       /* struct::virtual::public */
+      "26N3fooIiE3barIfLi42EE4baseE" /* (extends) foo<int>::bar<float,42>::base
+                                      */
+  };
+
+  RunAction;
+  auto &Actual = GetNamespaces(DB);
+  ASSERT_EQ(Actual.size(), 2U);
+  std::sort(Actual.begin(), Actual.end());
+
+  CompareTuple(Actual[0], GobalRecord);
+}
+
 } // namespace clang
