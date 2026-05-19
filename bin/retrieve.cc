@@ -38,6 +38,12 @@ struct StringStack {
     Offsets.push_back(Buffer.size());
   }
 
+  void reset() {
+    Buffer.clear();
+    Offsets.resize(1);
+    Offsets[0] = 0;
+  }
+
   void pop() {
     if (Offsets.size() <= 1) {
       Buffer.clear();
@@ -56,6 +62,7 @@ class Retriever {
 private:
   SqliteDatabase &DB;
   std::ostream &Output;
+  mutable int NumResults;
 
   void Descend(StringStack &Stack, const std::string &Query, size_t StartIdx);
 
@@ -71,10 +78,7 @@ public:
   Retriever(SqliteDatabase &Data, std::ostream &Out = std::cout)
       : DB(Data), Output(Out) {}
 
-  void Query(const std::string &Key) {
-    StringStack Stack;
-    Descend(Stack, Key, 0);
-  }
+  void Query(const std::string &Key);
 };
 
 void Retriever::Yield(StringStack &Stack) {
@@ -105,6 +109,7 @@ void Retriever::Yield(StringStack &Stack) {
       break;
     }
     Output << File << ":" << Line << std::endl;
+    NumResults++;
   }
 
   if (HasResult) {
@@ -130,8 +135,72 @@ void Retriever::Yield(StringStack &Stack) {
       break;
     }
     Output << File << ":" << Line << std::endl;
+    NumResults++;
   }
   Stack.pop(); /* Pop '%' pushed previously */
+}
+
+void Retriever::Query(const std::string &Key) {
+  /* Use precise searching. */
+  NumResults = 0;
+  StringStack Stack;
+  Descend(Stack, Key, 0);
+
+  if (NumResults > 0) {
+    return;
+  }
+
+  /**
+   * Resort to non-precise matching.
+   *
+   * It works like this: retrieve the first token
+   * in Key, and try to use prefix-match on the
+   * member column, to get its parent declaration
+   * in the AST. Then, `Descend` can be used.
+   *
+   * This involves scanning the entire table, because
+   * the index does not work.
+   */
+  const char *Data = Key.data();
+  const char *FirstTokenEnd = strchr(Data, ':');
+  size_t FirstTokenLen =
+      (FirstTokenEnd == nullptr) ? Key.size() : (size_t)(FirstTokenEnd - Data);
+  std::string FirstToken = std::to_string(FirstTokenLen);
+  FirstToken += std::string(Data, FirstTokenLen);
+  FirstToken.push_back('%'); /* used in a SQL LIKE Stmt */
+
+  static const char *const STMTS[] = {
+      "SELECT DISTINCT(name) FROM " ClangDBTableNamespace
+      " WHERE member LIKE ?;",
+      "SELECT DISTINCT(name) FROM " ClangDBTableClass " WHERE member LIKE ?;",
+  };
+  Stack.reset();
+  for (const char *STMT : STMTS) {
+    /* Search member which is like FirstToken in namespace. */
+    ::sqlite::SQLite3Stmt Stmt = DB.GetDB().prepare(STMT);
+    int Result = ::sqlite::Binder<1, std::string_view>::bind(Stmt, FirstToken);
+    if (Result != SQLITE_OK) {
+      failure(DB.GetDB().errcode(), __LINE__);
+      return;
+    }
+    while (Stmt.step() == SQLITE_ROW) {
+      std::string Name; /* the DeclContext holding current decl */
+      ::sqlite::Row<0, std::string> Row(Name);
+      Result = Row.get_one(Stmt);
+      if (Result != SQLITE_OK) {
+        failure(DB.GetDB().errcode(), __LINE__);
+        break;
+      }
+      /* Found a valid prefix, can use Descend again. */
+      Stack.push(Name);
+      Descend(Stack, Key, 0);
+      Stack.pop();
+    }
+  }
+
+  if (NumResults == 0) {
+    Output << "No result found for query: " << Key << std::endl;
+  }
 }
 
 void Retriever::Descend(StringStack &Stack, const std::string &Query,
@@ -180,6 +249,7 @@ void Retriever::Descend(StringStack &Stack, const std::string &Query,
         if (Type == "9namespace") {
           /* namespace is not stored in the symbol table. */
           Output << "(namespace)" << std::endl;
+          NumResults += 1;
         } else {
           Yield(Stack);
         }
