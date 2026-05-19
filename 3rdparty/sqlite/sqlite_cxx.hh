@@ -19,8 +19,29 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
 
   struct SQLite3Stmt;
 
+  /**
+   * Bind a value to a prepared statement.
+   * The index is 1-based, as in the SQLite C API.
+   */
   template <typename T> inline int bind(SQLite3Stmt & stmt, int index, T value);
 
+  /**
+   * Get the column value of the current row of a prepared statement.
+   * The index is 0-based, as in the SQLite C API.
+   */
+  template <typename T>
+  inline int get_column(SQLite3Stmt & stmt, int index, T *out);
+
+  /**
+   * The {@link Binder} class handles binding C++ values
+   * to arguments to SQL statements, in ascending order of argument index.
+   *
+   * Note that the index is 1-based, therefore user of this
+   * class should set argument `Idx` to 1.
+   *
+   * Its static method `bind` handles the binding, which returns
+   * `SQLITE_OK` on success.
+   */
   template <int Idx, typename... Args> struct Binder;
 
   template <int Idx, typename Head, typename... RestArgs>
@@ -38,6 +59,45 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
   template <int Idx, typename Head> struct Binder<Idx, Head> {
     static int bind(SQLite3Stmt &stmt, const Head &head) {
       return ::sqlite::bind(stmt, Idx, head);
+    }
+  };
+
+  /**
+   * A result from SQL query execution. Its method `get_one`
+   * fills the provided reference of the value in the tuple result,
+   * which returns `SQLITE_OK` on success.
+   *
+   * Note: the left-most result has the index 0.
+   */
+  template <int Idx, typename... Args> struct Row;
+
+  template <int Idx, typename Head> struct Row<Idx, Head> {
+    Head &head; /* One column of execution result. */
+    Row(Head &head) : head(head) {}
+
+    int get_one(SQLite3Stmt &stmt) {
+      return ::sqlite::get_column(stmt, Idx, &head);
+    }
+  };
+
+  template <int Idx, typename Head, typename... RestArgs>
+  struct Row<Idx, Head, RestArgs...> : public Row<Idx + 1, RestArgs...> {
+  private:
+    using ExtendedTy = Row<Idx + 1, RestArgs...>;
+
+  public:
+    Head &head; /* One column of execution result. */
+    Row(Head &head, RestArgs &...rest) : ExtendedTy(rest...), head(head) {}
+
+    /**
+     * Get one result.
+     */
+    int get_one(SQLite3Stmt &stmt) {
+      int res = ::sqlite::get_column(stmt, Idx, &head);
+      if (res != SQLITE_OK) {
+        return res;
+      }
+      return ExtendedTy::get_one(stmt);
     }
   };
 
@@ -185,6 +245,64 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
                   std::pair<const void *, size_t> value) {
     return sqlite3_bind_blob(stmt.get(), index, value.first, value.second,
                              SQLITE_STATIC);
+  }
+
+  template <> inline int get_column(SQLite3Stmt & stmt, int index, int *out) {
+    *out = sqlite3_column_int(stmt.get(), index);
+    return SQLITE_OK;
+  }
+
+  template <>
+  inline int get_column(SQLite3Stmt & stmt, int index, sqlite3_int64 *out) {
+    *out = sqlite3_column_int64(stmt.get(), index);
+    return SQLITE_OK;
+  }
+
+  template <>
+  inline int get_column(SQLite3Stmt & stmt, int index, double *out) {
+    *out = sqlite3_column_double(stmt.get(), index);
+    return SQLITE_OK;
+  }
+
+  /**
+   * Get a blob column.
+   */
+  template <>
+  inline int get_column<std::pair<const void *, size_t>>(
+      SQLite3Stmt & stmt, int index, std::pair<const void *, size_t> *out) {
+    const void *data = sqlite3_column_blob(stmt.get(), index);
+    int size = sqlite3_column_bytes(stmt.get(), index);
+    *out = {data, static_cast<size_t>(size)};
+    return SQLITE_OK;
+  }
+
+  /**
+   * Get a text column.
+   */
+  template <>
+  inline int get_column<std::string>(SQLite3Stmt & stmt, int index,
+                                     std::string *out) {
+    const char *text =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), index));
+    if (text == nullptr) {
+      text = ""; /* SQLite Specified. */
+    }
+    int size = sqlite3_column_bytes(stmt.get(), index);
+    *out = std::string(text, size);
+    return SQLITE_OK;
+  }
+
+  template <>
+  inline int get_column<std::pair<const char *, size_t>>(
+      SQLite3Stmt & stmt, int index, std::pair<const char *, size_t> *out) {
+    const char *text =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt.get(), index));
+    if (text == nullptr) {
+      text = ""; /* SQLite Specified. */
+    }
+    int size = sqlite3_column_bytes(stmt.get(), index);
+    *out = {text, static_cast<size_t>(size)};
+    return SQLITE_OK;
   }
 
 } /* namespace sqlite */
