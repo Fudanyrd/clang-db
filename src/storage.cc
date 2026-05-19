@@ -69,6 +69,8 @@ int SqliteDatabase::InsertIntoNamespace(std::string_view NamespaceName,
   return 0; /* Not implemented yet. */
 }
 
+DefNormalizePath;
+
 int SqliteDatabase::InsertSymbol(std::string_view Name, std::string File,
                                  int Line) {
   static constexpr char STMT[] =
@@ -77,8 +79,11 @@ int SqliteDatabase::InsertSymbol(std::string_view Name, std::string File,
   if (!SqliteStmt) {
     return 1; /* Failed to prepare statement. */
   }
-  if (::sqlite::Binder<1, std::string_view, std::string_view, int>::bind(
-          SqliteStmt, Name, File, Line)) {
+
+  const auto NormalizedFile = NormalizePathName(File);
+  const char *NormalizedFileCStr = NormalizedFile.data();
+  if (::sqlite::Binder<1, std::string_view, const char *, int>::bind(
+          SqliteStmt, Name, NormalizedFileCStr, Line)) {
     return 1; /* Failed to bind parameters. */
   }
 
