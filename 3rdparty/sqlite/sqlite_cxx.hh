@@ -46,9 +46,8 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
 
   template <int Idx, typename Head, typename... RestArgs>
   struct Binder<Idx, Head, RestArgs...> {
-    static int bind(SQLite3Stmt &stmt, const Head &head,
-                    const RestArgs &...rest) {
-      int res = ::sqlite::bind(stmt, Idx, head);
+    static int bind(SQLite3Stmt &stmt, Head head, RestArgs... rest) {
+      int res = ::sqlite::bind<Head>(stmt, Idx, head);
       if (res != SQLITE_OK) {
         return res;
       }
@@ -57,8 +56,8 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
   };
 
   template <int Idx, typename Head> struct Binder<Idx, Head> {
-    static int bind(SQLite3Stmt &stmt, const Head &head) {
-      return ::sqlite::bind(stmt, Idx, head);
+    static int bind(SQLite3Stmt &stmt, Head head) {
+      return ::sqlite::bind<Head>(stmt, Idx, head);
     }
   };
 
