@@ -19,12 +19,13 @@ void EncodeBaseClasses(std::string &Dest, const CXXRecordDecl *RD) {
   Dest += "7virtual";
   for (auto Iter = Bases.begin(); Iter != Bases.end(); Iter++) {
     const CXXRecordDecl *Base = Iter->getType()->getAsCXXRecordDecl();
-    if (!Base) {
-      continue;
-    }
     Dest += EncodeAccessSpecifier(Iter->getAccessSpecifier());
     Dest += (Iter->isVirtual() ? "7virtual" : "");
-    Dest += EncodeNs("N" + MangleRecordDecl(Base) + "E");
+    if (Base != nullptr) {
+      Dest += EncodeNs("N" + MangleRecordDecl(Base) + "E");
+    } else {
+      Dest += EncodeNs(MangleType(Iter->getType().getTypePtr()));
+    }
   }
 }
 

@@ -101,4 +101,25 @@ TEST_F(TestHelper, TemplateBaseClass2) {
   CompareTuple(Actual[0], GobalRecord);
 }
 
+TEST_F(TestHelper, TemplateBaseClass3) {
+  PrepareParsingCXX("template <typename T>\n"
+                    "struct vector_base { };\n"
+                    "\n"
+                    "template <typename T>\n"
+                    "struct vector : protected vector_base<T> { };");
+
+  const char *GobalRecord[3] = {
+      "", "6vectorIN8template8typename1TEE", /* vector<T> */
+      "6struct7virtual9protected"            /* struct::virtual::protected */
+      /* extends vector_base<T> */
+      "39N11vector_baseIN8template8typename1TEEE"};
+
+  RunAction;
+  auto &Actual = GetNamespaces(DB);
+  ASSERT_EQ(Actual.size(), 2U);
+  std::sort(Actual.begin(), Actual.end());
+
+  CompareTuple(Actual[1], GobalRecord);
+}
+
 } // namespace clang
