@@ -4,3 +4,6 @@ target_link_libraries(BuildDatabase PRIVATE clangdb sqlite3)
 
 add_executable(dbgen dbgen.cc)
 target_link_libraries(dbgen PRIVATE clangdb clang clang-cpp LLVM sqlite3)
+
+add_executable(retrieve retrieve.cc)
+target_link_libraries(retrieve PRIVATE clangdb clang clang-cpp LLVM sqlite3)

@@ -152,7 +152,7 @@ public:
    * Equivalent SQL:
    * <blockquote><pre>
    * SELECT file, line FROM class
-   * where name <> $Name;
+   * where name = $Name;
    * </pre></blockquote>
    *
    * @param Name: query key.
@@ -169,7 +169,7 @@ public:
    * Equivalent SQL:
    * <blockquote><pre>
    * SELECT member, type FROM class
-   * where name <> $ClassName;
+   * where name = $ClassName;
    * </pre></blockquote>
    *
    * @param ClassName
@@ -186,7 +186,7 @@ public:
    * Equivalent SQL:
    * <blockquote><pre>
    * SELECT type FROM class
-   * where (name <> $ClassName) and (member <> $Member);
+   * where (name = $ClassName) and (member <> $Member);
    * </pre></blockquote>
    *
    * @param ClassName
@@ -205,7 +205,7 @@ public:
    * Equivalent SQL:
    * <blockquote><pre>
    * SELECT member, type FROM namespace
-   * where name <> $NsName;
+   * where name = $NsName;
    * </pre></blockquote>
    *
    * @param NsName
@@ -222,7 +222,7 @@ public:
    * Equivalent SQL:
    * <blockquote><pre>
    * SELECT type FROM namespace
-   * where name <> $NsName and member <> $Member;
+   * where name = $NsName and member = $Member;
    * </pre></blockquote>
    *
    * @param NsName
