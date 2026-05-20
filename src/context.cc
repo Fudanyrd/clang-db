@@ -25,6 +25,18 @@ std::string DatabaseContext::CurrentScope() const {
 
 void DatabaseContext::IterateScope(DeclContext *Scope) {
   std::string CurScope = CurrentScope();
+  static const char *const ClangBuiltinTypedefs[] = {
+      "__int128_t",           "__uint128_t",       "__NSConstantString",
+      "__builtin_ms_va_list", "__builtin_va_list",
+  };
+  auto IsBuiltinTypedef = [](llvm::StringRef Name) {
+    for (const char *Builtin : ClangBuiltinTypedefs) {
+      if (Name == Builtin) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   for (auto Iter = Scope->decls_begin(); Iter != Scope->decls_end(); Iter++) {
     if (auto *ND = llvm::dyn_cast<NamespaceDecl>(*Iter)) {
@@ -63,6 +75,11 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
       std::string ShortName = EncodeNs(VD->getName());
       InsertIntoNamespace(CurScope, ShortName,
                           TypeofVarDecl(VD, AccessSpecifier::AS_none), VD);
+    } else if (auto *TDD = llvm::dyn_cast<TypedefNameDecl>(*Iter)) {
+      if (!IsBuiltinTypedef(TDD->getName())) {
+        std::string ShortName = EncodeNs(TDD->getName());
+        InsertIntoNamespace(CurScope, ShortName, TypeofTypedefDecl(TDD), TDD);
+      }
     }
   }
 }
@@ -113,6 +130,10 @@ void DatabaseContext::IterateClass(CXXRecordDecl *RD) {
       std::string ShortName = EncodeNs(FD->getName());
       InsertIntoClass(CurrentScope(), ShortName, TypeofClassMember(FD, Access),
                       FD);
+    } else if (auto *TDD = llvm::dyn_cast<TypedefNameDecl>(*Iter)) {
+      std::string ShortName = EncodeNs(TDD->getName());
+      InsertIntoClass(CurrentScope(), ShortName, TypeofTypedefDecl(TDD, Access),
+                      TDD);
     }
   }
 }

@@ -75,6 +75,17 @@ inline const char *EncodeAccessSpecifier(AccessSpecifier Access) {
   llvm_unreachable("Unknown AccessSpecifier");
 }
 
+inline std::string
+TypeofTypedefDecl(const TypedefNameDecl *TD,
+                  AccessSpecifier Access = AccessSpecifier::AS_none) {
+  std::string Ret = "7typedef";
+  if (Access != AccessSpecifier::AS_none) {
+    Ret += EncodeAccessSpecifier(Access);
+  }
+  Ret += EncodeNs(MangleType(TD->getUnderlyingType().getTypePtr()));
+  return Ret;
+}
+
 inline std::string TypeofLocalCXXRecordDecl(CXXRecordDecl *RD,
                                             AccessSpecifier Access) {
   const char *Type = TypeofCXXRecord(RD);

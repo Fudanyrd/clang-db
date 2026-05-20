@@ -302,6 +302,9 @@ std::string MangleNestedNameSpecifier(const NestedNameSpecifier *NNS) {
     assert(Inc.size() >= 2);
     ret += (Inc.back() == 'E') ? Inc.substr(1, Inc.size() - 2) : Inc;
   } else if (NNS->getKind() == NestedNameSpecifier::Global) {
+  } else if (NNS->getKind() == NestedNameSpecifier::Identifier) {
+    const IdentifierInfo *II = NNS->getAsIdentifier();
+    ret += EncodeNs(II->getName());
   } else {
     llvm::errs()
         << "Error: unexpected decl context in MangleNestedNameSpecifier: "

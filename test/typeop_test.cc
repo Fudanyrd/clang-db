@@ -30,6 +30,8 @@ TEST_F(TestHelper, BuiltinTy) {
   const char *Expected[][3] = {
       {"5point", "1xv", "6public2Rf"},
       {"5point", "1yv", "6public2Ri"},
+      {"5point", "4_XTy", "7typedef6public1f"},
+      {"5point", "4_YTy", "7typedef6public1i"},
   };
 
   database::InMemoryDatabase DB;
@@ -58,10 +60,18 @@ TEST_F(TestHelper, TemplateTy) {
                     "};");
 
   const char *Expected[][3] = {
+      {"4PairIN8template8typename4_KeyEN8template8typename6_ValueEE",
+       "10value_type",
+       "7typedef6public"
+       "27N8template8typename6_ValueE"},
       {"4PairIN8template8typename4_KeyEN8template8typename6_ValueEE", "3keyv",
        "6public26RN8template8typename4_KeyE"},
       {"4PairIN8template8typename4_KeyEN8template8typename6_ValueEE", "5valuev",
        "6public28RN8template8typename6_ValueE"},
+      {"4PairIN8template8typename4_KeyEN8template8typename6_ValueEE",
+       "8key_type",
+       "7typedef6public"
+       "25N8template8typename4_KeyE"},
   };
 
   database::InMemoryDatabase DB;
@@ -92,8 +102,9 @@ TEST_F(TestHelper, Scope) {
                     "}");
 
   const char *Expected[][3] = {
-      {"", "3foo", "9namespace"}, {"3foo", "3bar", "9namespace"},
-      {"3foo", "3fn1v", "i"},     {"3foo", "3fn2v", "i"},
+      {"", "3foo", "9namespace"},     {"3foo", "1T", "7typedef1i"},
+      {"3foo", "3bar", "9namespace"}, {"3foo", "3fn1v", "i"},
+      {"3foo", "3fn2v", "i"},         {"3foo3bar", "1T", "7typedef1f"},
       {"3foo3bar", "2fnv", "f"},
   };
 
@@ -122,8 +133,8 @@ TEST_F(TestHelper, Linkage) {
                     "}");
 
   const char *Expected[][3] = {
-      {"", "3foo", "9namespace"},
-      {"3foo", "2fnv", "i"},
+      {"", "1T", "7typedef1f"},     {"", "3foo", "9namespace"},
+      {"3foo", "1T", "7typedef1i"}, {"3foo", "2fnv", "i"},
       {"6extern", "2fnv", "f"},
   };
 
@@ -249,7 +260,8 @@ TEST_F(TestHelper, Arrays) {
       /**
        * Array parameter is passed as pointer.
        */
-      {"6extern", "2fnPiPA42_i", "v"}, /* void fn(array_t) */
+      {"6extern", "2fnPiPA42_i", "v"},           /* void fn(array_t) */
+      {"6extern", "7array_t", "7typedef5A42_i"}, /* typedef array_t */
   };
 
   database::InMemoryDatabase DB;
