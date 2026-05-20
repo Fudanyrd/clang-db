@@ -34,6 +34,17 @@ namespace database _CLANGDB_VISIBILITY {
  */
 std::string EncodeFunctionName(const FunctionDecl *FD);
 std::string MangleType(const Type *TypePtr);
+inline std::string MangleType(QualType QT) {
+  char Qualifier[] = {0x00, 0x00, 0x00};
+  int Next = 0;
+  if (QT.isConstQualified()) {
+    Qualifier[Next++] = 'K';
+  }
+  if (QT.isVolatileQualified()) {
+    Qualifier[Next++] = 'V';
+  }
+  return std::string(Qualifier, Next) + MangleType(QT.getTypePtr());
+}
 
 /**
  * @return the short name, comprising of name and template arguments
@@ -68,7 +79,7 @@ inline std::string MangleFunctionTemplate(FunctionTemplateDecl &FTD) {
   FunctionDecl *Fn = FTD.getTemplatedDecl();
   return EncodeFunctionName(Fn) +
          MangleTemplateParameterList(*FTD.getTemplateParameters()) +
-         MangleType(Fn->getReturnType().getTypePtr());
+         MangleType(Fn->getReturnType());
 }
 
 inline std::string MangleTemplateName(const TemplateName &TN) {

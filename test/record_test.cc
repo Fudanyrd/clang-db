@@ -77,8 +77,8 @@ TEST_F(TestHelper, StaticMember) {
   PrepareParsingCXX(
       "struct foo { static char ch; static constexpr char A = \'A\'; };\n");
   const char *Expected[][3] = {
-      {"3foo", "1A", "6static6public9constexpr1c"}, /* foo::A */
-      {"3foo", "2ch", "6static6public1c"},          /* foo::ch */
+      {"3foo", "1A", "6static6public9constexpr2Kc"}, /* foo::A */
+      {"3foo", "2ch", "6static6public1c"},           /* foo::ch */
   };
 
   RunAction;
@@ -91,11 +91,11 @@ TEST_F(TestHelper, NamespaceMember) {
   PrepareParsingCXX("namespace foo { char ch; constexpr char A = \'A\'; }\n"
                     "extern \"C\" int errno;\nconstexpr char TERM = 0;\n");
   const char *Expected[][3] = {
-      {"", "3foo", "9namespace"},     /* namespace foo */
-      {"", "4TERM", "9constexpr1c"},  /* global variable TERM */
-      {"3foo", "1A", "9constexpr1c"}, /* foo::A */
-      {"3foo", "2ch", "1c"},          /* foo::ch */
-      {"6extern", "5errno", "1i"},    /* errno */
+      {"", "3foo", "9namespace"},      /* namespace foo */
+      {"", "4TERM", "9constexpr2Kc"},  /* global variable TERM */
+      {"3foo", "1A", "9constexpr2Kc"}, /* foo::A */
+      {"3foo", "2ch", "1c"},           /* foo::ch */
+      {"6extern", "5errno", "1i"},     /* errno */
   };
 
   RunAction;

@@ -82,7 +82,7 @@ TypeofTypedefDecl(const TypedefNameDecl *TD,
   if (Access != AccessSpecifier::AS_none) {
     Ret += EncodeAccessSpecifier(Access);
   }
-  Ret += EncodeNs(MangleType(TD->getUnderlyingType().getTypePtr()));
+  Ret += EncodeNs(MangleType(TD->getUnderlyingType()));
   return Ret;
 }
 

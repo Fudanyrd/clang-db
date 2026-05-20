@@ -20,7 +20,7 @@ struct BuildDatabaseConsumer;
 struct ClassDeclVisitor; /* internal use. */
 
 inline std::string TypeofFunctionDecl(FunctionDecl *FD) {
-  return MangleType(FD->getReturnType().getTypePtr());
+  return MangleType(FD->getReturnType());
 }
 
 inline std::string TypeofFunctionTemplateDecl(FunctionTemplateDecl *FTD) {

@@ -24,14 +24,14 @@ void EncodeBaseClasses(std::string &Dest, const CXXRecordDecl *RD) {
     if (Base != nullptr) {
       Dest += EncodeNs("N" + MangleRecordDecl(Base) + "E");
     } else {
-      Dest += EncodeNs(MangleType(Iter->getType().getTypePtr()));
+      Dest += EncodeNs(MangleType(Iter->getType()));
     }
   }
 }
 
 std::string TypeofLocalCXXMethodDecl(CXXMethodDecl *Method,
                                      AccessSpecifier Access) {
-  std::string MangledRetTy = MangleType(Method->getReturnType().getTypePtr());
+  std::string MangledRetTy = MangleType(Method->getReturnType());
   std::string Ret = Method->isStatic() ? "6static" : "";
   Ret += (Method->isConst() ? "5const" : "");
   Ret += (Method->isPureVirtual() ? "7virtual" : "");
@@ -44,7 +44,7 @@ std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access) {
   /**
    * return format: mangled "(static::)(const::)(mutable::)mangled(type)"
    */
-  std::string MangledTy = MangleType(Value->getType().getTypePtr());
+  std::string MangledTy = MangleType(Value->getType());
   std::string Ret = Value->isMutable() ? "7mutable" : "";
   Ret += EncodeAccessSpecifier(Access);
   Ret += EncodeNs(MangledTy);
@@ -52,7 +52,7 @@ std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access) {
 }
 
 std::string TypeofVarDecl(VarDecl *Value, AccessSpecifier Access) {
-  std::string MangledTy = MangleType(Value->getType().getTypePtr());
+  std::string MangledTy = MangleType(Value->getType());
   std::string Ret = Value->isStaticDataMember() ? "6static" : "";
   Ret +=
       (Access == AccessSpecifier::AS_none) ? "" : EncodeAccessSpecifier(Access);

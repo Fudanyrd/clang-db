@@ -256,7 +256,7 @@ TEST_F(TestHelper, Arrays) {
        * constexpr, A42_i =>
        * `foo` is a constexpr array of size 42, type int.
        */
-      {"", "3foo", "9constexpr5A42_i"}, /* array_t foo */
+      {"", "3foo", "9constexpr6KA42_i"}, /* array_t foo */
       /**
        * Array parameter is passed as pointer.
        */
@@ -305,6 +305,29 @@ TEST_F(TestHelper, VirtualMethod) {
     EXPECT_EQ(std::get<1>(Method), Expected[I][1]);
     EXPECT_EQ(std::get<2>(Method), Expected[I][2]);
   }
+}
+
+TEST_F(TestHelper, TypeQualifier) {
+  PrepareParsingCXX(
+      "void fn(volatile int *, const char *, const int &, int &);");
+  const char *Expected[] = {"",
+                            "2fn"
+                            "PVi"
+                            "PKc"
+                            "RKi"
+                            "Ri", /* parameters */
+                            "v"};
+
+  database::InMemoryDatabase DB;
+  std::unique_ptr<FrontendAction> action =
+      std::make_unique<database::BuildDatabaseAction>(DB);
+  ASSERT_TRUE(Instance.ExecuteAction(*action));
+
+  std::vector<TupleStrStrStr> &Actual = GetNamespaces(DB);
+  EXPECT_EQ(Actual.size(), 1U);
+  EXPECT_EQ(std::get<0>(Actual[0]), Expected[0]);
+  EXPECT_EQ(std::get<1>(Actual[0]), Expected[1]);
+  EXPECT_EQ(std::get<2>(Actual[0]), Expected[2]);
 }
 
 } /* namespace clang */

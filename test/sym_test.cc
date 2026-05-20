@@ -35,14 +35,14 @@ using TupleStrLoc = std::tuple<std::string, std::string, int>;
  */
 TEST_F(TestHelper, SymbolTable) {
   const char *Symbols[] = {
-      "1A",        "1A2fnv",              /* A::fn() */
-      "1ADv",                             /* A::~A() */
-      "1AaSON1AE",                        /* A::operator=(A&&) */
-      "1AaSRN1AE",                        /* A::operator=(A&) */
-      "1B",        "1B2fnv",   "1BDv",    /* B::~B() */
-      "1BaSON1BE",                        /* B::operator=(B&&) */
-      "1BaSRN1BE",                        /* B::operator=(B&) */
-      "3foo",      "3foo3bar", "4myfniz", /* myfn(int, ...) */
+      "1A",         "1A2fnv",              /* A::fn() */
+      "1ADv",                              /* A::~A() */
+      "1AaSON1AE",                         /* A::operator=(A&&) */
+      "1AaSRKN1AE",                        /* A::operator=(A&) */
+      "1B",         "1B2fnv",   "1BDv",    /* B::~B() */
+      "1BaSON1BE",                         /* B::operator=(B&&) */
+      "1BaSRKN1BE",                        /* B::operator=(B&) */
+      "3foo",       "3foo3bar", "4myfniz", /* myfn(int, ...) */
   };
   PrepareParsingCXX("struct foo { struct bar { }; };\n"
                     "struct A { virtual int fn() = 0; }; \n"

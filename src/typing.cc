@@ -35,7 +35,7 @@ std::string MangleTemplateParameterList(const TemplateParameterList &List) {
       Ret += MangleTemplateTypeParmDecl(TTPD);
     } else if (auto *NTTPD = llvm::dyn_cast<NonTypeTemplateParmDecl>(Param)) {
       Ret += "N8template8decltype";
-      std::string Ty = MangleType(NTTPD->getType().getTypePtr());
+      std::string Ty = MangleType(NTTPD->getType());
       if (NTTPD->isParameterPack()) {
         Ty.push_back('z');
       }
@@ -71,15 +71,15 @@ std::string MangleType(const Type *TypePtr) {
 
   if (dyn_cast<const PointerType>(TypePtr)) {
     const PointerType *PT = dyn_cast<const PointerType>(TypePtr);
-    return "P" + MangleType(PT->getPointeeType().getTypePtr());
+    return "P" + MangleType(PT->getPointeeType());
   }
   if (dyn_cast<const RValueReferenceType>(TypePtr)) {
     const ReferenceType *RT = dyn_cast<const ReferenceType>(TypePtr);
-    return "O" + MangleType(RT->getPointeeType().getTypePtr());
+    return "O" + MangleType(RT->getPointeeType());
   }
   if (dyn_cast<const LValueReferenceType>(TypePtr)) {
     const ReferenceType *RT = dyn_cast<const ReferenceType>(TypePtr);
-    return "R" + MangleType(RT->getPointeeType().getTypePtr());
+    return "R" + MangleType(RT->getPointeeType());
   }
   if (dyn_cast<const TemplateTypeParmType>(TypePtr)) {
     const TemplateTypeParmType *TTP =
@@ -94,7 +94,7 @@ std::string MangleType(const Type *TypePtr) {
   }
   if (dyn_cast<const ElaboratedType>(TypePtr)) {
     const ElaboratedType *ET = dyn_cast<const ElaboratedType>(TypePtr);
-    return MangleType(ET->getNamedType().getTypePtr());
+    return MangleType(ET->getNamedType());
   }
 
   if (dyn_cast<const TemplateSpecializationType>(TypePtr)) {
@@ -103,34 +103,34 @@ std::string MangleType(const Type *TypePtr) {
   }
   if (dyn_cast<const PackExpansionType>(TypePtr)) {
     const auto *PET = dyn_cast<const PackExpansionType>(TypePtr);
-    return MangleType(PET->getPattern().getTypePtr());
+    return MangleType(PET->getPattern());
   }
 
   if (auto *UT = dyn_cast<const UsingType>(TypePtr)) {
-    return MangleType(UT->getUnderlyingType().getTypePtr());
+    return MangleType(UT->getUnderlyingType());
   }
   if (auto *TyDefTy = dyn_cast<const TypedefType>(TypePtr)) {
-    return MangleType(TyDefTy->getDecl()->getUnderlyingType().getTypePtr());
+    return MangleType(TyDefTy->getDecl()->getUnderlyingType());
   }
   if (auto *TyOfTy = dyn_cast<const TypeOfType>(TypePtr)) {
-    return MangleType(TyOfTy->getUnmodifiedType().getTypePtr());
+    return MangleType(TyOfTy->getUnmodifiedType());
   }
   if (auto *FuncTy = dyn_cast<const FunctionProtoType>(TypePtr)) {
     const auto *FT = FuncTy;
     std::string Ret = "F";
-    Ret += MangleType(FT->getReturnType().getTypePtr());
+    Ret += MangleType(FT->getReturnType());
     MangleFunctionParmList(Ret, FT);
     Ret.push_back('E');
     return Ret;
   }
   if (auto *ParenTy = dyn_cast<const ParenType>(TypePtr)) {
-    return MangleType(ParenTy->getInnerType().getTypePtr());
+    return MangleType(ParenTy->getInnerType());
   }
   if (auto *AdjustTy = dyn_cast<const AdjustedType>(TypePtr)) {
-    return MangleType(AdjustTy->getAdjustedType().getTypePtr());
+    return MangleType(AdjustTy->getAdjustedType());
   }
   if (auto *DeclTy = dyn_cast<const DecltypeType>(TypePtr)) {
-    return MangleType(DeclTy->getUnderlyingType().getTypePtr());
+    return MangleType(DeclTy->getUnderlyingType());
   }
   if (auto *ConstArr = dyn_cast<const ConstantArrayType>(TypePtr)) {
     llvm::APInt Length = ConstArr->getSize();
@@ -139,7 +139,7 @@ std::string MangleType(const Type *TypePtr) {
 
     std::string Ret = const_cast<const char *>(buf);
     Ret.push_back('_');
-    Ret += (MangleType(ConstArr->getElementType().getTypePtr()));
+    Ret += (MangleType(ConstArr->getElementType()));
     return Ret;
   }
   if (auto *DepArr = dyn_cast<const DependentSizedArrayType>(TypePtr)) {
@@ -148,12 +148,12 @@ std::string MangleType(const Type *TypePtr) {
      * Therefore, only encodes the element type.
      */
     std::string Ret = "A_";
-    Ret += MangleType(DepArr->getElementType().getTypePtr());
+    Ret += MangleType(DepArr->getElementType());
     return Ret;
   }
   if (auto *SubstTemplateTy =
           dyn_cast<const SubstTemplateTypeParmType>(TypePtr)) {
-    return MangleType(SubstTemplateTy->getReplacementType().getTypePtr());
+    return MangleType(SubstTemplateTy->getReplacementType());
   }
   if (auto *DependentTy = dyn_cast<const DependentNameType>(TypePtr)) {
     std::string Ret = "N";
@@ -165,6 +165,39 @@ std::string MangleType(const Type *TypePtr) {
   if (auto *ICN = dyn_cast<const InjectedClassNameType>(TypePtr)) {
     const auto *RD = ICN->getDecl();
     return "N" + MangleRecordDecl(RD) + "E";
+  }
+  if (auto *EnumTy = dyn_cast<const EnumType>(TypePtr)) {
+    const auto *ED = EnumTy->getDecl();
+    return "N" + MangleRecordDecl(ED) + "E";
+  }
+
+  if (auto *DTS =
+          dyn_cast<const DependentTemplateSpecializationType>(TypePtr)) {
+    std::string Ret = "N";
+    Ret += MangleNestedNameSpecifier(DTS->getQualifier());
+    Ret += EncodeNs(DTS->getIdentifier()->getName());
+    Ret += MangleTemplateArgumentList(DTS->template_arguments());
+    Ret.push_back('E');
+    return Ret;
+  }
+  if (auto *MQ = dyn_cast<const MacroQualifiedType>(TypePtr)) {
+    const auto Ret = MangleType(MQ->getUnderlyingType());
+    return Ret;
+  }
+  if (auto *MPT = dyn_cast<const MemberPointerType>(TypePtr)) {
+    const auto *MPTy = MPT;
+    std::string Ret = "P";
+    Ret += MangleType(MPTy->getPointeeType());
+    return Ret;
+  }
+  if (auto *TOET = dyn_cast<const TypeOfExprType>(TypePtr)) {
+    const auto Ret = MangleType(TOET->getUnderlyingExpr()->getType());
+    return Ret;
+  }
+  if (auto *IncompleteArrTy = dyn_cast<const IncompleteArrayType>(TypePtr)) {
+    std::string Ret = "A_";
+    Ret += MangleType(IncompleteArrTy->getElementType());
+    return Ret;
   }
 
   /**
@@ -219,7 +252,7 @@ static void MangleTemplateArgument(std::string &Ret,
     Ret += "NE"; /* empty template argument */
     break;
   case TemplateArgument::ArgKind::Type:
-    Ret += MangleType(Arg.getAsType().getTypePtr());
+    Ret += MangleType(Arg.getAsType());
     break;
   case TemplateArgument::ArgKind::NullPtr:
     Ret += "Dn"; /* nullptr_t */
@@ -334,7 +367,7 @@ void MangleFunctionParmList(std::string &Dest, const FunctionProtoType *Proto) {
   int NumParams = 0;
   for (auto Iter = Proto->param_type_begin(); Iter != Proto->param_type_end();
        Iter++) {
-    const Type *ParamType = Iter->getTypePtr();
+    const QualType ParamType = *Iter;
     Dest += MangleType(ParamType);
     NumParams += 1;
   }
@@ -382,7 +415,7 @@ std::string EncodeFunctionName(const FunctionDecl *FD) {
                Method->isMoveAssignmentOperator()) {
       return "aS";
     } else if (const auto *Conv = dyn_cast<CXXConversionDecl>(Method)) {
-      return "cv" + MangleType(Conv->getConversionType().getTypePtr());
+      return "cv" + MangleType(Conv->getConversionType());
     }
   }
 
