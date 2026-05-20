@@ -436,7 +436,11 @@ public:
 
   operator bool() const { return (bool)DB; }
   SqliteDatabase() : DB(0) { CreateTableAndIndex(); }
-  SqliteDatabase(const char *Filename) : DB(Filename) { CreateTableAndIndex(); }
+  SqliteDatabase(const char *Filename,
+                 int Flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE)
+      : DB(Filename, Flags) {
+    CreateTableAndIndex();
+  }
   ~SqliteDatabase() override = default;
 
   int TransactionBegin() override;

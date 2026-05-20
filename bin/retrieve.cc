@@ -3,12 +3,21 @@
  * a symbol from user, and prints the location of it.
  *
  * Query format: tokens joined by '::', e.g. std::vector::push_back.
- * The user should provide its whole name, e.g. `vector::push_back'
- * is not supported.
+ * Starting from Commit 47cbd009, vague query is supported (but slower),
+ * e.g. `vector::size_type` will find you the  location of
+ * `std::vector::size_type`.
  *
  * How does it work: gradually descend into nested scopes.
  * e.g. for the query above, '' (translation unit) -> std (namespace) ->
  * vector (class) -> push_back (method)
+ *
+ * <h3>Known Issues</h3>
+ * The greatest would be lack of support for anonymous namespaces,
+ * e.g.
+ * <blockquote><pre>
+ *  namespace foo { namespace { int x; } }
+ * </pre></blockquote>
+ * is stored internally as '3foo01x', therefore querying 'foo::x' will not work.
  */
 
 #include <clangdb.h>
@@ -96,23 +105,20 @@ void Retriever::Yield(StringStack &Stack) {
     failure(DB.GetDB().errcode(), __LINE__);
     return;
   }
-  bool HasResult = false;
   while (Stmt.step() == SQLITE_ROW) {
-    HasResult = true;
     std::string File;
     int Line;
     ::sqlite::Row<0, std::string, int> Row(File, Line);
     Result = Row.get_one(Stmt);
     if (Result != SQLITE_OK) {
       failure(DB.GetDB().errcode(), __LINE__);
-      HasResult = false;
       break;
     }
     Output << File << ":" << Line << std::endl;
     NumResults++;
   }
 
-  if (HasResult) {
+  if (NumResults) {
     return;
   }
 
@@ -221,71 +227,55 @@ void Retriever::Descend(StringStack &Stack, const std::string &Query,
    * handles template class (e.g. 6vectorI...E) and function
    * (e.g. 2fnii, with argument list.)
    */
+  static const char *const STMTs[] = {
+      "SELECT DISTINCT(member), type FROM " ClangDBTableNamespace
+      " WHERE (name = ?) AND (member LIKE ?);",
+      "SELECT DISTINCT(member), type FROM " ClangDBTableClass
+      " WHERE (name = ?) AND (member LIKE ?);",
+  };
   /* Look up from the Table namespace. */
-  {
-    static const char STMT[] =
-        "SELECT DISTINCT(member), type FROM " ClangDBTableNamespace
-        " WHERE (name = ?) AND (member LIKE ?);";
-    ::sqlite::SQLite3Stmt Stmt = DB.GetDB().prepare(STMT);
-    int Result =
-        ::sqlite::Binder<1, const std::string &, const std::string &>::bind(
-            Stmt, Stack.Buffer, Token);
-    if (Result != SQLITE_OK) {
-      failure(DB.GetDB().errcode(), __LINE__);
-      return;
-    }
-    std::string Member;
-    std::string Type;
-    while (Stmt.step() == SQLITE_ROW) {
-      ::sqlite::Row<0, std::string, std::string> Row(Member, Type);
-      Result = Row.get_one(Stmt);
+  for (const char *STMT : STMTs) {
+    std::vector<bool> IsNamespaces;
+    std::vector<std::string> Members;
+    Members.reserve(4);
+    /* Stmt Initialize */ {
+      ::sqlite::SQLite3Stmt Stmt = DB.GetDB().prepare(STMT);
+      std::string Member;
+      std::string Type;
+      int Result =
+          ::sqlite::Binder<1, const std::string &, const std::string &>::bind(
+              Stmt, Stack.Buffer, Token);
       if (Result != SQLITE_OK) {
         failure(DB.GetDB().errcode(), __LINE__);
-        break;
+        return;
       }
 
+      while (Stmt.step() == SQLITE_ROW) {
+        ::sqlite::Row<0, std::string, std::string> Row(Member, Type);
+        Result = Row.get_one(Stmt);
+        if (Result != SQLITE_OK) {
+          failure(DB.GetDB().errcode(), __LINE__);
+          break;
+        }
+        IsNamespaces.push_back(Type == "9namespace");
+        Members.push_back(Member);
+      }
+
+    } /* Stmt finalize */
+
+    size_t NumMembers = Members.size();
+    for (size_t i = 0; i < NumMembers; ++i) {
+      const std::string &Member = Members[i];
+      bool IsNamespace = IsNamespaces[i];
       Stack.push(Member);
       if (End >= Length) {
-        if (Type == "9namespace") {
+        if (IsNamespace) {
           /* namespace is not stored in the symbol table. */
           Output << "(namespace)" << std::endl;
           NumResults += 1;
         } else {
           Yield(Stack);
         }
-      } else {
-        Descend(Stack, Query, End + 2);
-      }
-      Stack.pop();
-    }
-  }
-
-  /* Look up from the Table class. */
-  {
-    static const char STMT[] =
-        "SELECT DISTINCT(member), type FROM " ClangDBTableClass
-        " WHERE (name = ?) AND (member LIKE ?);";
-    ::sqlite::SQLite3Stmt Stmt = DB.GetDB().prepare(STMT);
-    int Result =
-        ::sqlite::Binder<1, const std::string &, const std::string &>::bind(
-            Stmt, Stack.Buffer, Token);
-    if (Result != SQLITE_OK) {
-      failure(DB.GetDB().errcode(), __LINE__);
-      return;
-    }
-    std::string Member;
-    std::string Type;
-    while (Stmt.step() == SQLITE_ROW) {
-      ::sqlite::Row<0, std::string, std::string> Row(Member, Type);
-      Result = Row.get_one(Stmt);
-      if (Result != SQLITE_OK) {
-        failure(DB.GetDB().errcode(), __LINE__);
-        break;
-      }
-
-      Stack.push(Member);
-      if (End >= Length) {
-        Yield(Stack);
       } else {
         Descend(Stack, Query, End + 2);
       }
@@ -308,7 +298,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  clang::database::SqliteDatabase DB(IFile);
+  clang::database::SqliteDatabase DB(IFile, SQLITE_OPEN_READONLY);
   if (!DB) {
     std::cerr << "Failed to open database file: " << IFile << std::endl;
     return 1;
