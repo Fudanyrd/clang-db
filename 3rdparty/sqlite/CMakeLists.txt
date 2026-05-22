@@ -6,14 +6,20 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # XXX: Options
 option(SQLITE_ENABLE_INSTALL "Enable installation of SQLite3" ON)
+option(SQLITE_BUILD_PYTHON "Enable Python bindings for SQLite3" OFF)
 
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   message(STATUS "Using SQLite3 as a top-level project.")
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -fno-rtti")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 else()
   message(STATUS "Using SQLite3 as a subproject. Installation disabled.")
   set(SQLITE_ENABLE_INSTALL OFF)
+endif()
+
+if (SQLITE_BUILD_PYTHON)
+  find_package(cppbind CONFIG REQUIRED)
 endif()
 
 add_custom_command(
@@ -52,4 +58,17 @@ if(SQLITE_ENABLE_INSTALL)
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/sqlite3.h" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/sqlite3ext.h" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/sqlite_cxx.hh" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
+
+# Python binding
+if (SQLITE_BUILD_PYTHON)
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR} 
+                      ${CPPBIND_INCLUDE_DIRS}
+                      ${PYTHON_INCLUDE_DIRS})
+  add_library(sqlite3py SHARED python.cc)
+  target_link_libraries(sqlite3py PRIVATE sqlite3 
+                        ${CPPBIND_LIBRARY} 
+                        ${PYTHON_LIBRARIES})
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
 endif()

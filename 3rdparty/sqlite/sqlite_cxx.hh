@@ -151,6 +151,10 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
       /* Ignore return value for now. */
       (void)sqlite3_close(db);
     }
+    void close() {
+      (void)sqlite3_close(db);
+      db = nullptr;
+    }
 
     SQLite3() : db(nullptr) {}
     SQLite3(const char *filename,
