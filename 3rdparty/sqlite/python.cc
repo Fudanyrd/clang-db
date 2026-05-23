@@ -7,10 +7,151 @@
 
 #include "sqlite_cxx.hh"
 #define SQLite3Methods(X)                                                      \
-  X(prepare, prepare, ::sqlite::SQLite3Stmt, const char *)                     \
+  X(prepare, prepare, ::sqlite::SQLite3Stmt, ::cppbind::Str)                   \
   X(close, close, void)
 
-#define SQLite3StmtMethods(X) X(step, step, int)
+#define SQLite3StmtMethods(X)                                                  \
+  X(step, step, int)                                                           \
+  X(bind, bind, int, ::cppbind::Str, PyObject *)                               \
+  X(get_columns, get_columns, PyObject *, ::cppbind::Str)
+
+namespace sqlite {
+
+static int stmt_bind_impl(const SQLite3Stmt &stmt, char fmt,
+                          ::cppbind::Object item, int idx) {
+  int res;
+  switch (fmt) {
+  case 's': {
+    ::cppbind::Str str_item(item);
+    /*
+     * C++ string is essentially a byte buffer,
+     * so encode() is required.
+     */
+    std::string value = ::cppbind::stringify(str_item);
+    res = ::sqlite::bind<const std::string &>(stmt, idx, value);
+    break;
+  }
+  case 'b': {
+    ::cppbind::Bytes bytes_item(item);
+    const void *data = bytes_item.data();
+    size_t size = bytes_item.size();
+    res = ::sqlite::bind(stmt, idx, std::make_pair(data, size));
+    break;
+  }
+  case 'i': {
+    ::cppbind::Long value(item);
+    int int_item = static_cast<long>(value);
+    res = ::sqlite::bind(stmt, 0, int_item);
+    break;
+  }
+  case 'l': {
+    ::cppbind::Long value(item);
+    auto int_item = static_cast<long long>(value);
+    res = ::sqlite::bind(stmt, 0, int_item);
+    break;
+  }
+  case 'd': {
+    double double_item = ::cppbind::Float(item);
+    res = ::sqlite::bind(stmt, 0, double_item);
+    break;
+  }
+  case 'n': {
+    res = sqlite3_bind_null(stmt.get(), 0);
+    break;
+  }
+  default:
+    return SQLITE_MISUSE;
+  }
+  return res;
+}
+
+template <typename ListLikeTy>
+int stmt_bind(const SQLite3Stmt &stmt, ::cppbind::Str fmt, ListLikeTy value) {
+  if (fmt.size() != value.size()) {
+    return SQLITE_MISUSE;
+  }
+
+  const char *data = fmt.data();
+  for (Py_ssize_t i = 0; i < fmt.size(); i++) {
+    char c = data[i];
+    auto item = value[i];
+    int res = stmt_bind_impl(stmt, c, item, i + 1);
+    if (res != SQLITE_OK) {
+      return res;
+    }
+  }
+  return SQLITE_OK;
+}
+
+int SQLite3Stmt::bind(::cppbind::Str fmt, PyObject *value) const {
+  if (PyTuple_Check(value)) {
+    return stmt_bind(*this, fmt, ::cppbind::Tuple{value});
+  }
+  if (PyList_Check(value)) {
+    return stmt_bind(*this, fmt, ::cppbind::List{value});
+  }
+  /* unsupported type. */
+  return SQLITE_MISUSE;
+}
+
+PyObject *SQLite3Stmt::get_columns(::cppbind::Str fmt) const {
+  int column_count = fmt.size();
+  auto *tuple = PyTuple_New(column_count);
+  if (tuple == nullptr) {
+    PyErr_SetString(PyExc_TypeError, "failed to create tuple");
+    return nullptr;
+  }
+  const char *data = fmt.data();
+  for (int i = 0; i < column_count; i++) {
+    char c = data[i];
+    PyObject *item = nullptr;
+    switch (c) {
+    case 's': {
+      const char *str_item =
+          reinterpret_cast<const char *>(sqlite3_column_text(get(), i));
+      item = PyUnicode_FromString(str_item);
+      break;
+    }
+    case 'b': {
+      const void *data = sqlite3_column_blob(get(), i);
+      int size = sqlite3_column_bytes(get(), i);
+      item =
+          PyBytes_FromStringAndSize(reinterpret_cast<const char *>(data), size);
+      break;
+    }
+    case 'i': {
+      int int_item = sqlite3_column_int(get(), i);
+      item = PyLong_FromLong(int_item);
+      break;
+    }
+    case 'l': {
+      sqlite3_int64 int_item = sqlite3_column_int64(get(), i);
+      item = PyLong_FromLong(int_item);
+      break;
+    }
+    case 'd': {
+      double double_item = sqlite3_column_double(get(), i);
+      item = PyFloat_FromDouble(double_item);
+      break;
+    }
+    case 'n': /* fall through */
+    default:  /* silently return none as result. */
+      Py_INCREF(Py_None);
+      item = Py_None;
+      break;
+    }
+    PyTuple_SET_ITEM(tuple, i, item);
+  }
+
+  return tuple;
+}
+
+SQLite3Stmt SQLite3::prepare(::cppbind::Str sql) const {
+  std::string sql_str = ::cppbind::stringify(sql);
+  return prepare(sql_str.data(), sql_str.size());
+}
+
+} /* namespace sqlite */
 
 namespace cppbind {
 

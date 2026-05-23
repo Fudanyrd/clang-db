@@ -15,6 +15,19 @@
 
 #include "sqlite3.h"
 
+/* Python API */
+extern "C" typedef struct _object PyObject;
+
+/* cppbind classes declaration. */
+namespace cppbind {
+struct Bytes;
+struct Tuple;
+struct List;
+struct Object;
+struct Dict;
+struct Str;
+} /* namespace cppbind */
+
 namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
 
   struct SQLite3Stmt;
@@ -23,7 +36,8 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
    * Bind a value to a prepared statement.
    * The index is 1-based, as in the SQLite C API.
    */
-  template <typename T> inline int bind(SQLite3Stmt & stmt, int index, T value);
+  template <typename T>
+  inline int bind(const SQLite3Stmt &stmt, int index, T value);
 
   /**
    * Get the column value of the current row of a prepared statement.
@@ -46,7 +60,7 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
 
   template <int Idx, typename Head, typename... RestArgs>
   struct Binder<Idx, Head, RestArgs...> {
-    static int bind(SQLite3Stmt &stmt, Head head, RestArgs... rest) {
+    static int bind(const SQLite3Stmt &stmt, Head head, RestArgs... rest) {
       int res = ::sqlite::bind<Head>(stmt, Idx, head);
       if (res != SQLITE_OK) {
         return res;
@@ -56,7 +70,7 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
   };
 
   template <int Idx, typename Head> struct Binder<Idx, Head> {
-    static int bind(SQLite3Stmt &stmt, Head head) {
+    static int bind(const SQLite3Stmt &stmt, Head head) {
       return ::sqlite::bind<Head>(stmt, Idx, head);
     }
   };
@@ -140,6 +154,26 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
       return sqlite3_bind_text(stmt, index, value.data(), value.size(),
                                SQLITE_STATIC);
     }
+
+    /**
+     * Only used when `SQLITE_BUILD_PYTHON` is enabled.
+     *
+     * @param fmt: a string consists of only s(str), b(blob),
+     * i(int), l(int64), d(double), n(null).
+     * @param value: a tuple or list of values to be bound, which should
+     * have the same number of items as the length of `fmt`.
+     */
+    int bind(::cppbind::Str fmt, PyObject *value) const;
+
+    /**
+     * Only used when `SQLITE_BUILD_PYTHON` is enabled.
+     *
+     * @param fmt: a string consists of only s(str), b(blob),
+     * i(int), l(int64), d(double), n(null).
+     * @return a tuple of column values of the current row,
+     * nullptr on error.
+     */
+    PyObject *get_columns(::cppbind::Str fmt) const;
   };
 
   struct SQLite3 {
@@ -204,47 +238,51 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
       return SQLite3Stmt(stmt);
     }
 
+    SQLite3Stmt prepare(::cppbind::Str sql) const;
+
     int errcode() const { return sqlite3_errcode(db); }
     const char *err_message() const { return sqlite3_errmsg(db); }
   };
 
   template <>
-  inline int bind(SQLite3Stmt & stmt, int index, const char *value) {
+  inline int bind(const SQLite3Stmt &stmt, int index, const char *value) {
     return stmt.bind(index, value, strlen(value));
   }
   template <>
-  inline int bind(SQLite3Stmt & stmt, int index, std::string_view value) {
+  inline int bind(const SQLite3Stmt &stmt, int index, std::string_view value) {
     return stmt.bind(index, value.data(), value.size());
   }
 
   template <>
-  inline int bind<const std::string &>(SQLite3Stmt & stmt, int index,
+  inline int bind<const std::string &>(const SQLite3Stmt &stmt, int index,
                                        const std::string &value) {
     return stmt.bind(index, value.data(), value.size());
   }
 
-  template <> inline int bind(SQLite3Stmt & stmt, int index, int value) {
+  template <> inline int bind(const SQLite3Stmt &stmt, int index, int value) {
     return sqlite3_bind_int(stmt.get(), index, value);
   }
 
   template <>
-  inline int bind(SQLite3Stmt & stmt, int index, sqlite3_int64 value) {
+  inline int bind(const SQLite3Stmt &stmt, int index, sqlite3_int64 value) {
     return sqlite3_bind_int64(stmt.get(), index, value);
   }
 
-  template <> inline int bind(SQLite3Stmt & stmt, int index, std::nullptr_t) {
+  template <>
+  inline int bind(const SQLite3Stmt &stmt, int index, std::nullptr_t) {
     return sqlite3_bind_null(stmt.get(), index);
   }
 
-  template <> inline int bind(SQLite3Stmt & stmt, int index, double value) {
+  template <>
+  inline int bind(const SQLite3Stmt &stmt, int index, double value) {
     return sqlite3_bind_double(stmt.get(), index, value);
   }
-  template <> inline int bind(SQLite3Stmt & stmt, int index, float value) {
+  template <> inline int bind(const SQLite3Stmt &stmt, int index, float value) {
     return sqlite3_bind_double(stmt.get(), index, static_cast<double>(value));
   }
 
   template <>
-  inline int bind(SQLite3Stmt & stmt, int index,
+  inline int bind(const SQLite3Stmt &stmt, int index,
                   std::pair<const void *, size_t> value) {
     return sqlite3_bind_blob(stmt.get(), index, value.first, value.second,
                              SQLITE_STATIC);
