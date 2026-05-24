@@ -41,22 +41,22 @@ static int stmt_bind_impl(const SQLite3Stmt &stmt, char fmt,
   case 'i': {
     ::cppbind::Long value(item);
     int int_item = static_cast<long>(value);
-    res = ::sqlite::bind(stmt, 0, int_item);
+    res = ::sqlite::bind(stmt, idx, int_item);
     break;
   }
   case 'l': {
     ::cppbind::Long value(item);
     auto int_item = static_cast<long long>(value);
-    res = ::sqlite::bind(stmt, 0, int_item);
+    res = ::sqlite::bind(stmt, idx, int_item);
     break;
   }
   case 'd': {
     double double_item = ::cppbind::Float(item);
-    res = ::sqlite::bind(stmt, 0, double_item);
+    res = ::sqlite::bind(stmt, idx, double_item);
     break;
   }
   case 'n': {
-    res = sqlite3_bind_null(stmt.get(), 0);
+    res = sqlite3_bind_null(stmt.get(), idx);
     break;
   }
   default:
@@ -109,11 +109,15 @@ PyObject *SQLite3Stmt::get_columns(::cppbind::Str fmt) const {
     case 's': {
       const char *str_item =
           reinterpret_cast<const char *>(sqlite3_column_text(get(), i));
+      /* When the result is empty, it is nullptr. */
+      str_item = str_item ? str_item : "";
       item = PyUnicode_FromString(str_item);
       break;
     }
     case 'b': {
       const void *data = sqlite3_column_blob(get(), i);
+      /* When the result is empty, it is nullptr. */
+      data = data ? data : "";
       int size = sqlite3_column_bytes(get(), i);
       item =
           PyBytes_FromStringAndSize(reinterpret_cast<const char *>(data), size);
