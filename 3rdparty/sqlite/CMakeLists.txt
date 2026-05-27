@@ -7,6 +7,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # XXX: Options
 option(SQLITE_ENABLE_INSTALL "Enable installation of SQLite3" ON)
 option(SQLITE_BUILD_PYTHON "Enable Python bindings for SQLite3" OFF)
+option(SQLITE_ENABLE_TESTS "Enable building tests for SQLite3" ${SQLITE_BUILD_PYTHON})
+
+if (NOT SQLITE_BUILD_PYTHON AND SQLITE_ENABLE_TESTS)
+  message(FATAL_ERROR "SQLITE_ENABLE_TESTS requires SQLITE_BUILD_PYTHON to be ON.")
+endif()
 
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   message(STATUS "Using SQLite3 as a top-level project.")
@@ -65,10 +70,18 @@ if (SQLITE_BUILD_PYTHON)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR} 
                       ${CPPBIND_INCLUDE_DIRS}
                       ${PYTHON_INCLUDE_DIRS})
-  add_library(sqlite3py SHARED python.cc)
+  add_library(sqlite3py SHARED sqlite/python.cc)
   target_link_libraries(sqlite3py PRIVATE sqlite3 
                         ${CPPBIND_LIBRARY} 
                         ${PYTHON_LIBRARIES})
+
+  if (SQLITE_ENABLE_TESTS)
+    add_custom_target(test 
+      COMMAND ln -sf ${CMAKE_CURRENT_SOURCE_DIR}/test.py test.py && python < test.py
+      DEPENDS sqlite3py ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+  endif()
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
 endif()
