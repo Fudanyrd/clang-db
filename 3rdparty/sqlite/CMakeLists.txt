@@ -70,6 +70,7 @@ if (SQLITE_BUILD_PYTHON)
   # do not mark this as REQURED, because when
   # installing with `pip install .`, this package
   # can be auto-detected.
+  add_definitions(-D_SQLITE_HAS_PYTHON)
   find_package(PythonExtensions CONFIG)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR} 
                       ${CPPBIND_INCLUDE_DIRS}

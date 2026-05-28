@@ -19,7 +19,7 @@ namespace sqlite {
 
 static int stmt_bind_impl(const SQLite3Stmt &stmt, char fmt,
                           ::cppbind::Object item, int idx) {
-  int res;
+  int res = SQLITE_OK;
   switch (fmt) {
   case 's': {
     ::cppbind::Str str_item(item);
@@ -27,8 +27,17 @@ static int stmt_bind_impl(const SQLite3Stmt &stmt, char fmt,
      * C++ string is essentially a byte buffer,
      * so encode() is required.
      */
-    std::string value = ::cppbind::stringify(str_item);
-    res = ::sqlite::bind<const std::string &>(stmt, idx, value);
+    PyObject *bytes_obj = PyUnicode_AsUTF8String(str_item.object().ptr);
+    if (unlikely(bytes_obj == nullptr)) {
+      res = SQLITE_NOMEM;
+    } else {
+      assert(PyBytes_Check(bytes_obj));
+      const char *data = PyBytes_AsString(bytes_obj);
+      const auto length = PyBytes_Size(bytes_obj);
+      res = sqlite3_bind_text(stmt.get(), idx, data, length, SQLITE_STATIC);
+      /* keep the reference of the bytes object alive. */
+      stmt.bound_objects.push_back(bytes_obj);
+    }
     break;
   }
   case 'b': {
@@ -36,6 +45,10 @@ static int stmt_bind_impl(const SQLite3Stmt &stmt, char fmt,
     const void *data = bytes_item.data();
     size_t size = bytes_item.size();
     res = ::sqlite::bind(stmt, idx, std::make_pair(data, size));
+    /**
+     * Borrow the reference of the bytes object.
+     */
+    stmt.bound_objects.push_back(bytes_item.object().unwrap());
     break;
   }
   case 'i': {
@@ -273,10 +286,19 @@ method_wrapper_static_members_declare(cppbind::MethodTableEntry::method_t);
 type_static_members(cppbind::CppObject<sqlite::SQLite3Stmt>);
 type_static_members(cppbind::CppObject<sqlite::SQLite3>);
 
-static int rest_init() {
+static int rest_init(cppbind::Module &modobj) {
   MethodWrapper_init(this_package, cppbind::MethodTableEntry::method_t);
   cpp_type_init(this_package, sqlite::SQLite3Stmt, "Stmt", SQLite3StmtMethods);
   cpp_type_init(this_package, sqlite::SQLite3, "Database", SQLite3Methods);
+
+  add_cpp_type(modobj, sqlite::SQLite3Stmt, "Stmt");
+  add_cpp_type(modobj, sqlite::SQLite3, "Database");
+
+  modobj.add_int_const("SQLITE_OK", SQLITE_OK);
+  modobj.add_int_const("SQLITE_MISUSE", SQLITE_MISUSE);
+  modobj.add_int_const("SQLITE_NOMEM", SQLITE_NOMEM);
+  modobj.add_int_const("SQLITE_ROW", SQLITE_ROW);
+  modobj.add_int_const("SQLITE_DONE", SQLITE_DONE);
   return 0;
 }
 

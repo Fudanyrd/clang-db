@@ -12,10 +12,15 @@
 #include <string_view>
 #include <sys/fcntl.h>
 #include <utility>
+#include <vector>
+
+#if defined _SQLITE_HAS_PYTHON
+#include <Python.h>
+#endif /* _SQLITE_HAS_PYTHON */
 
 #include "sqlite3.h"
 
-/* Python API */
+/* Python API: forward declaration. */
 extern "C" typedef struct _object PyObject;
 
 /* cppbind classes declaration. */
@@ -119,9 +124,30 @@ namespace sqlite __attribute__((visibility(_SQLITE3_VISIBILITY))) {
     sqlite3_stmt *stmt;
 
   public:
+    /**
+     * BUG prior to commit 0d08f345: possibly use-after-free.
+     *
+     * This tries to resolve the bug, without copying the string/blob data,
+     * by keeping the reference of these objects alive until the statement is
+     * finalized.
+     *
+     * If cppbind is present, vector&lt;cppbind::Bytes&gt; should work,
+     * but for compatibility, we store object pointers.
+     */
+    mutable std::vector<PyObject *> bound_objects;
+
+  public:
     ~SQLite3Stmt() {
       /* Ignore return value for now. */
       (void)sqlite3_finalize(stmt);
+
+      /* Check whether cppbind package is present, via cmake provided define. */
+#if defined _SQLITE_HAS_PYTHON
+      for (auto *object : bound_objects) {
+        /* Release the reference of these objects. */
+        Py_DECREF(object);
+      }
+#endif /* _SQLITE_HAS_PYTHON */
     }
 
     SQLite3Stmt() : stmt(nullptr) {}
