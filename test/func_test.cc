@@ -105,7 +105,7 @@ TEST_F(TestHelper, OverloadedOperator) {
   const char *GlobalRecord[3] = {"", "plRN3IntERN3IntE", "N3IntE"};
   {
     auto &Actual = GetClasses(DB);
-    ASSERT_TRUE(Actual.size() == 1U);
+    ASSERT_EQ(Actual.size(), 1U);
     EXPECT_EQ(std::get<0>(Actual[0]), ClassRecord[0]);
     EXPECT_EQ(std::get<1>(Actual[0]), ClassRecord[1]);
     EXPECT_EQ(std::get<2>(Actual[0]), ClassRecord[2]);

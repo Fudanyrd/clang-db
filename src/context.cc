@@ -50,10 +50,12 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
     } else if (auto *LSD = llvm::dyn_cast<LinkageSpecDecl>(*Iter)) {
       VisitLinkageSpecDecl(LSD);
     } else if (auto *RD = llvm::dyn_cast<CXXRecordDecl>(*Iter)) {
-      std::string ShortName;
-      CXXRecordMember(ShortName, RD);
-      InsertIntoNamespace(CurScope, ShortName, TypeofCXXRecordDecl(RD), RD);
-      VisitCXXRecordDecl(RD);
+      if ((RD = ShouldVisitClass(RD))) {
+        std::string ShortName;
+        CXXRecordMember(ShortName, RD);
+        InsertIntoNamespace(CurScope, ShortName, TypeofCXXRecordDecl(RD), RD);
+        VisitCXXRecordDecl(RD);
+      }
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(*Iter)) {
       std::string ShortName;
       ClassTemplateMember(ShortName, CTD);
@@ -64,8 +66,12 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
       /* ignored for now. */
     } else if (auto *FD = llvm::dyn_cast<FunctionDecl>(*Iter)) {
       std::string ShortName;
-      FunctionMember(ShortName, FD);
-      InsertIntoNamespace(CurScope, ShortName, TypeofFunctionDecl(FD), FD);
+      FD = ShouldVisitFunction(FD);
+      if (FD && dyn_cast<const FunctionProtoType>(FD->getType().getTypePtr()) !=
+                    nullptr) {
+        FunctionMember(ShortName, FD);
+        InsertIntoNamespace(CurScope, ShortName, TypeofFunctionDecl(FD), FD);
+      }
     } else if (auto *FTD = llvm::dyn_cast<FunctionTemplateDecl>(*Iter)) {
       std::string ShortName;
       FunctionTemplateMember(ShortName, FTD);
@@ -95,11 +101,13 @@ void DatabaseContext::IterateClass(CXXRecordDecl *RD) {
   /* Must skip the first one -- the struct/class body */
   for (Iter++; Iter != End; Iter++) {
     if (auto *RD = llvm::dyn_cast<CXXRecordDecl>(*Iter)) {
-      std::string ShortName;
-      CXXRecordMember(ShortName, RD);
-      InsertIntoClass(CurrentScope(), ShortName,
-                      TypeofLocalCXXRecordDecl(RD, Access), RD);
-      VisitCXXRecordDecl(RD);
+      if ((RD = ShouldVisitClass(RD))) {
+        std::string ShortName;
+        CXXRecordMember(ShortName, RD);
+        InsertIntoClass(CurrentScope(), ShortName,
+                        TypeofLocalCXXRecordDecl(RD, Access), RD);
+        VisitCXXRecordDecl(RD);
+      }
     } else if (auto *CTD = llvm::dyn_cast<ClassTemplateDecl>(*Iter)) {
       std::string ShortName;
       ClassTemplateMember(ShortName, CTD);
@@ -109,10 +117,14 @@ void DatabaseContext::IterateClass(CXXRecordDecl *RD) {
       VisitClassTemplateDecl(CTD);
     } else if (auto *FD = llvm::dyn_cast<FunctionDecl>(*Iter)) {
       std::string ShortName;
-      FunctionMember(ShortName, FD);
-      InsertIntoClass(
-          CurrentScope(), ShortName,
-          TypeofLocalCXXMethodDecl(dyn_cast<CXXMethodDecl>(FD), Access), FD);
+      FD = ShouldVisitFunction(FD);
+      if (FD && dyn_cast<const FunctionProtoType>(FD->getType().getTypePtr()) !=
+                    nullptr) {
+        FunctionMember(ShortName, FD);
+        InsertIntoClass(
+            CurrentScope(), ShortName,
+            TypeofLocalCXXMethodDecl(dyn_cast<CXXMethodDecl>(FD), Access), FD);
+      }
     } else if (auto *FTD = llvm::dyn_cast<FunctionTemplateDecl>(*Iter)) {
       std::string ShortName;
       FunctionTemplateMember(ShortName, FTD);

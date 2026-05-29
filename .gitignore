@@ -19,3 +19,9 @@ tmp-*
 .vscode/*
 !.vscode/settings.json
 
+# python
+venv
+_skbuild
+*.egg-info
+__pycache__
+

@@ -5,6 +5,7 @@
 #include <clang/Basic/PartialDiagnostic.h>
 #include <clang/Frontend/FrontendAction.h>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "common.h"
@@ -33,7 +34,32 @@ private:
   std::vector<size_t> NameSizes;
   std::string WholeName;
   std::vector<DeclContext *> DeclContexts;
+  std::set<CXXRecordDecl *> VisitedClasses;
+  std::set<FunctionDecl *> VisitedFunctions;
   DatabaseInterface &Database;
+
+  CXXRecordDecl *ShouldVisitClass(CXXRecordDecl *RD) {
+    auto *Def = RD->getDefinition();
+    if (Def) {
+      RD = Def;
+    }
+    if (VisitedClasses.count(RD)) {
+      return nullptr;
+    }
+    VisitedClasses.insert(RD);
+    return RD;
+  }
+  FunctionDecl *ShouldVisitFunction(FunctionDecl *FD) {
+    auto *Def = FD->getDefinition();
+    if (Def) {
+      FD = Def;
+    }
+    if (VisitedFunctions.count(FD)) {
+      return nullptr;
+    }
+    VisitedFunctions.insert(FD);
+    return FD;
+  }
 
   static bool isCLinkage(DeclContext *Ctx) {
     auto *LSD = llvm::dyn_cast<LinkageSpecDecl>(Ctx);
