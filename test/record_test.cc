@@ -135,4 +135,18 @@ TEST_F(TestHelper, BaseClasses) {
   CompareTuple(Actual[9], ExpectedCLS);
 }
 
+TEST_F(TestHelper, Enum) {
+  PrepareParsingCXX("enum Color { RED, GREEN };\n");
+  const char *ExpectedCLS[][3] = {
+      {"5Color", "3RED", "6public4enum1i"},
+      {"5Color", "5GREEN", "6public4enum1i"},
+  };
+
+  RunAction;
+  auto &Actual = GetClasses(DB);
+  ASSERT_EQ(2U, Actual.size());
+  std::sort(Actual.begin(), Actual.end());
+  CompareTuples(Actual, ExpectedCLS);
+}
+
 } /* namespace clang */

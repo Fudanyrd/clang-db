@@ -95,7 +95,22 @@ inline std::string TypeofLocalCXXRecordDecl(CXXRecordDecl *RD,
   return Ret;
 }
 
+inline std::string TypeofEnumDecl(const EnumDecl *ED) { return "4enum"; }
+
+inline std::string TypeofLocalEnumDecl(const EnumDecl *ED,
+                                       AccessSpecifier Access) {
+  std::string Ret = "4enum";
+  Ret += EncodeAccessSpecifier(Access);
+  return Ret;
+}
+
 std::string TypeofClassMember(FieldDecl *Value, AccessSpecifier Access);
+
+inline std::string TypeofEnumConstDecl(EnumConstantDecl *Value,
+                                       AccessSpecifier Access) {
+  /* public::enum::i */
+  return "6public4enum1i";
+}
 
 /**
  * @param Value: the variable declaration to be mangled.

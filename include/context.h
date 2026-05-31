@@ -12,6 +12,8 @@
 #include "storage.h"
 #include "typing.h"
 
+#include "ast.h"
+
 namespace clang {
 
 namespace database _CLANGDB_VISIBILITY {
@@ -179,6 +181,16 @@ public:
     ClassTemplateMember(ShortName, TD);
     EnterDeclContext(TD->getTemplatedDecl(), ShortName);
     IterateClass(TD->getTemplatedDecl());
+    LeaveDeclContext();
+  }
+
+  void VisitEnumDecl(EnumDecl *ED) {
+    EnterDeclContext(ED, EncodeNs(ED->getName()));
+    for (auto *Iter : ED->enumerators()) {
+      std::string ShortName = EncodeNs(Iter->getName());
+      InsertIntoClass(CurrentScope(), ShortName,
+                      TypeofEnumConstDecl(Iter, AS_public), Iter);
+    }
     LeaveDeclContext();
   }
 

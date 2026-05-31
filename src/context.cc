@@ -86,6 +86,10 @@ void DatabaseContext::IterateScope(DeclContext *Scope) {
         std::string ShortName = EncodeNs(TDD->getName());
         InsertIntoNamespace(CurScope, ShortName, TypeofTypedefDecl(TDD), TDD);
       }
+    } else if (auto *ED = llvm::dyn_cast<EnumDecl>(*Iter)) {
+      std::string ShortName = EncodeNs(ED->getName());
+      InsertIntoNamespace(CurScope, ShortName, TypeofEnumDecl(ED), ED);
+      VisitEnumDecl(ED);
     }
   }
 }
@@ -146,6 +150,15 @@ void DatabaseContext::IterateClass(CXXRecordDecl *RD) {
       std::string ShortName = EncodeNs(TDD->getName());
       InsertIntoClass(CurrentScope(), ShortName, TypeofTypedefDecl(TDD, Access),
                       TDD);
+    } else if (auto *ECD = llvm::dyn_cast<EnumConstantDecl>(*Iter)) {
+      std::string ShortName = EncodeNs(ECD->getName());
+      InsertIntoClass(CurrentScope(), ShortName,
+                      TypeofEnumConstDecl(ECD, Access), ECD);
+    } else if (auto *ED = llvm::dyn_cast<EnumDecl>(*Iter)) {
+      std::string ShortName = EncodeNs(ED->getName());
+      InsertIntoClass(CurrentScope(), ShortName,
+                      TypeofLocalEnumDecl(ED, Access), ED);
+      VisitEnumDecl(ED);
     }
   }
 }
