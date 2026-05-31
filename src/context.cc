@@ -5,23 +5,7 @@ namespace clang {
 
 namespace database _CLANGDB_VISIBILITY {
 
-std::string DatabaseContext::CurrentScope() const {
-  long i;
-  for (i = DeclContexts.size() - 1; i >= 0; --i) {
-    if (isCLinkage(DeclContexts[i])) {
-      break;
-    }
-  }
-
-  if (i >= 0) {
-    /* Special treatment for an extern "C" */
-    std::string Ret = "6extern";
-    size_t Start = NameSizes[i];
-    Ret += WholeName.substr(Start, WholeName.size() - Start);
-    return Ret;
-  }
-  return WholeName;
-}
+std::string DatabaseContext::CurrentScope() const { return WholeName; }
 
 void DatabaseContext::IterateScope(DeclContext *Scope) {
   std::string CurScope = CurrentScope();

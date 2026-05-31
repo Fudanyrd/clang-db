@@ -212,14 +212,8 @@ std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
                                  size_t StartIdx) {
   std::string ret = "";
 
-  /* Top is C Linkage. */
   if (Nesting.empty()) {
     return ret;
-  }
-  if (const auto *LSD = dyn_cast<LinkageSpecDecl>(Nesting.back())) {
-    if (LSD->getLanguage() == LinkageSpecLanguageIDs::C) {
-      return "6extern";
-    }
   }
 
   const size_t Depth = Nesting.size();
@@ -230,11 +224,7 @@ std::string MangleNamespaceStack(const std::vector<DeclContext *> &Nesting,
     } else if (auto *RD = dyn_cast<const CXXRecordDecl>(Ptr)) {
       ret += EncodeRecordDecl(RD);
     } else if (auto *LSD = dyn_cast<const LinkageSpecDecl>(Ptr)) {
-      if (LSD->getLanguage() == LinkageSpecLanguageIDs::C) {
-        ret = "6extern"; /* ignore all previous namespaces. */
-      } else {
-        /* ignored. */
-      }
+      /* ignored. */
     } else {
       llvm::errs() << "Unexpected decl context in namespace stack: "
                    << Ptr->getDeclKindName() << "\n";

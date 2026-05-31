@@ -6,8 +6,8 @@ TEST_F(TestHelper, CStruct) {
   PrepareParsingCXX("extern \"C\" struct point { float x, y; };\n");
 
   const char *Expected[][3] = {
-      {"6extern5point", "1x", "6public1f"}, /* point::x */
-      {"6extern5point", "1y", "6public1f"}, /* point::y */
+      {"5point", "1x", "6public1f"}, /* point::x */
+      {"5point", "1y", "6public1f"}, /* point::y */
   };
 
   RunAction;
@@ -93,9 +93,9 @@ TEST_F(TestHelper, NamespaceMember) {
   const char *Expected[][3] = {
       {"", "3foo", "9namespace"},      /* namespace foo */
       {"", "4TERM", "9constexpr2Kc"},  /* global variable TERM */
+      {"", "5errno", "1i"},            /* errno */
       {"3foo", "1A", "9constexpr2Kc"}, /* foo::A */
       {"3foo", "2ch", "1c"},           /* foo::ch */
-      {"6extern", "5errno", "1i"},     /* errno */
   };
 
   RunAction;

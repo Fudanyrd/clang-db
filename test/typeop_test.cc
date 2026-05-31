@@ -133,9 +133,9 @@ TEST_F(TestHelper, Linkage) {
                     "}");
 
   const char *Expected[][3] = {
-      {"", "1T", "7typedef1f"},     {"", "3foo", "9namespace"},
-      {"3foo", "1T", "7typedef1i"}, {"3foo", "2fnv", "i"},
-      {"6extern", "2fnv", "f"},
+      {"", "1T", "7typedef1f"},   {"", "2fnv", "f"},
+      {"", "3foo", "9namespace"}, {"3foo", "1T", "7typedef1i"},
+      {"3foo", "2fnv", "i"},
   };
 
   database::InMemoryDatabase DB;
@@ -251,6 +251,7 @@ TEST_F(TestHelper, Arrays) {
                     "extern array_t bar[25];");
 
   const char *Expected[][3] = {
+      {"", "2fnPiPA42_i", "v"},   /* void fn(array_t) */
       {"", "3bar", "9A25_A42_i"}, /* array_t bar[42] */
       /**
        * constexpr, A42_i =>
@@ -260,8 +261,7 @@ TEST_F(TestHelper, Arrays) {
       /**
        * Array parameter is passed as pointer.
        */
-      {"6extern", "2fnPiPA42_i", "v"},           /* void fn(array_t) */
-      {"6extern", "7array_t", "7typedef5A42_i"}, /* typedef array_t */
+      {"", "7array_t", "7typedef5A42_i"}, /* typedef array_t */
   };
 
   database::InMemoryDatabase DB;
