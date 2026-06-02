@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# Run unit tests.
 # Usage:
 # CC={C compiler} CXX={CXX Compiler} [CXXSTD={11,14,17,20}] ci-test.sh [build_dir]
 

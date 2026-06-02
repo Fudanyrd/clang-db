@@ -41,7 +41,9 @@ jobs:
         run: sh script/ci-format.sh
       - name: Run Tests
         working-directory: .
-        run: CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} sh script/ci-test.sh
+        run: |
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} sh script/ci-test.sh
+          sh script/ci-reg-test.sh
       - name: Run Clang Tidy
         working-directory: .
         run: sh script/ci-tidy.sh

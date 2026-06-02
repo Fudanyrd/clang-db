@@ -12,6 +12,8 @@ apt-get -y install \
   clang-tidy-15 \
   doxygen \
   clang-15 \
+  gcc \
+  g++ \
   libclang-15-dev \
   gawk \
   unzip \
@@ -28,5 +30,9 @@ which clang-format || {
 which clang-tidy || {
   ln -sf "$( which clang-tidy-15 )" /usr/bin/clang-tidy
 }
+
+# install our python extensions.
+python3 -m pip install 3rdparty/pyptr
+python3 -m pip install 3rdparty/sqlite
 
 exit 0
