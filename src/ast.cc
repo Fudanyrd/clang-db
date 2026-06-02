@@ -81,7 +81,7 @@ bool BuildDatabaseAction::ParseArgs(const CompilerInstance &CI,
     if (Arg == "-h" || Arg == "--help") {
       PrintHelp = true;
     } else if (strncmp(Arg.c_str(), "-o=", 3) == 0) {
-      OFile = Arg.substr(3).c_str();
+      OFile = Arg.c_str() + 3;
     } else {
       llvm::errs() << "Unknown argument: " << Arg << "\n";
       return false;
