@@ -2,6 +2,7 @@
 The declaration tree builder.
 """
 
+import sys
 from sqlite import (
     Database, Stmt, 
     SQLITE_OK, SQLITE_ROW, SQLITE_DONE, SQLITE_MISUSE
@@ -141,3 +142,49 @@ class Builder():
         toplevel = TranslationUnitDecl()
         self._build_recurse(toplevel, '')
         return toplevel
+
+
+def _resolve_record_type_step(tokens: list[str], idx: int, ctx: DeclContext) -> tuple[DeclContext, int]:
+    """
+    Helper function for resolve_record_type.
+    """
+    for child in ctx.children:
+        name = strip_leading_digits(tokens[idx])
+        if isinstance(child, NamespaceDecl) and child.name == name:
+            return (child, idx + 1)
+        if isinstance(child, RecordDecl) and child.name == name:
+            # TODO: template argument/parameter list:
+            # currently treat as if they do not exist.
+            return (child, idx + 1)
+
+    return (None, idx)
+
+
+def resolve_record_type(tud: TranslationUnitDecl, unresolved_type: UnresolvedType) -> RecordType:
+    wholename = unresolved_type.mangled_name
+    tokens = Tokenizer(wholename).get()
+    assert tokens[0] == 'N' and tokens[-1] == 'E'
+    ctx: DeclContext = tud
+    idx = 1
+    while ctx is not None and idx < len(tokens) - 1:
+        ctx, idx = _resolve_record_type_step(tokens, idx, ctx)
+
+    if ctx is None:
+        print(f"Failed to resolve record type {wholename}", file=sys.stderr)
+        return None
+
+    if not isinstance(ctx, RecordDecl):
+        raise ValueError(f"Resolved {wholename} to a non-record declaration of kind {ctx.kind}")
+    return RecordType(ctx)
+
+
+def resolve_unresolved_types(tud: TranslationUnitDecl):
+    """
+    Resolve all UnresolvedType instances in the declaration tree of tud.
+    """
+    def _resolve_recurse(ctx: DeclContext):
+        ctx.fix_unresolved(resolve_record_type, tud)
+        for child in ctx.children:
+            _resolve_recurse(child)
+
+    _resolve_recurse(tud)

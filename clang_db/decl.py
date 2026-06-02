@@ -36,6 +36,15 @@ class DeclContext():
         self.kind = kind
         self.children: list[DeclContext] = []
 
+    def fix_unresolved(self, impl, tud) -> None:
+        """
+        Helper method used only in UnresolvedType resolution.
+        Defaults to doing nothing.
+
+        :param impl: resolution implementation, e.g. builder.resolve_record_type
+        :param tud: the translation unit declaration.
+        """
+        pass
 
 class TranslationUnitDecl(DeclContext):
     __slots__ = DeclContext.__slots__
@@ -81,6 +90,10 @@ class RecordDecl(DeclContext):
         self.base_classes = base_classes
         self.access = access
 
+    def fix_unresolved(self, impl, tud) -> None:
+        for base in self.base_classes:
+            base.base = base.base.fix_unresolved(impl, tud)
+
 
 class FieldDecl(DeclContext):
     __slots__ = ['name', 'type', 'access'] + DeclContext.__slots__
@@ -93,6 +106,8 @@ class FieldDecl(DeclContext):
         self.type = type
         self.access = access
 
+    def fix_unresolved(self, impl, tud) -> None:
+        self.type = self.type.fix_unresolved(impl, tud)
 
 class FunctionDecl(DeclContext):
     __slots__ = ['name', 'ftype', 'access', 'template_args'] + DeclContext.__slots__
@@ -108,3 +123,5 @@ class FunctionDecl(DeclContext):
         self.access = access
         self.template_args: TemplateArgList | None = template_args
 
+    def fix_unresolved(self, impl, tud) -> None:
+        self.ftype = self.ftype.fix_unresolved(impl, tud)

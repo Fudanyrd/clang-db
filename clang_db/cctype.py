@@ -39,6 +39,16 @@ class TypeBase():
         """ It is needed for cache-ing built-in type objects. """
         return int(self.is_volatile) * 2 + int(self.is_constant)
 
+    def fix_unresolved(self, impl, tud):
+        """
+        Helper method used only in UnresolvedType resolution.
+        Defaults to doing nothing.
+
+        :param impl: resolution implementation, e.g. builder.resolve_record_type
+        :param tud: the translation unit declaration.
+        """
+        return self
+
 
 class BuiltinType(TypeBase):
     __slots__ = ['idx'] + TypeBase.__slots__
@@ -116,6 +126,36 @@ class RecordType(TypeBase):
         super().__init__(is_constant, is_volatile)
         self.decl : RecordDecl = decl
 
+    def _demangle_name(self) -> str:
+        from .decl import DeclContext, NamespaceDecl, RecordDecl, TranslationUnitDecl
+        elements = []
+        Iter: DeclContext = self.decl
+        while Iter is not None:
+            if isinstance(Iter, NamespaceDecl):
+                elements.append(Iter.name)
+            elif isinstance(Iter, RecordDecl):
+                name = Iter.name
+                if Iter.template_args is not None:
+                    name += f'<{Iter.template_args.fmt()}>'
+                elements.append(name)
+            elif isinstance(Iter, TranslationUnitDecl):
+                break
+            Iter: DeclContext | None = Iter.parent()
+        elements.reverse()
+        return '::'.join(elements)
+
+    def _fmt_lh(self, has_name: bool) -> str:
+        if self.is_constant:
+            suffix = " const"
+        else:
+            suffix = ""
+        if self.is_volatile:
+            suffix += " volatile"
+        return self._demangle_name() + suffix + ' '
+
+    def _fmt_rh(self, has_name: bool) -> str:
+        return ''
+
 
 class UnresolvedType(TypeBase):
     """
@@ -126,13 +166,15 @@ class UnresolvedType(TypeBase):
     def __init__(self, mangled_name: str, is_constant: bool = False, is_volatile: bool = False):
         super().__init__(is_constant, is_volatile)
         self.mangled_name = mangled_name
-        print(mangled_name)
 
     def _fmt_lh(self, has_name: bool) -> str:
         return self.mangled_name + ' '
     
     def _fmt_rh(self, has_name: bool) -> str:
         return ''
+
+    def fix_unresolved(self, impl, tud) -> TypeBase:
+        return impl(tud, self)
 
 
 class FunctionType(TypeBase):
@@ -162,6 +204,12 @@ class FunctionType(TypeBase):
         ret += ')'
         return ret
 
+    def fix_unresolved(self, impl, tud) -> TypeBase:
+        self.return_type = self.return_type.fix_unresolved(impl, tud)
+        for i in range(len(self.param_types)):
+            self.param_types[i] = self.param_types[i].fix_unresolved(impl, tud)
+        return self
+
 
 class PointerType(TypeBase):
     __slots__ = ["pointee_type"] + TypeBase.__slots__
@@ -180,6 +228,10 @@ class PointerType(TypeBase):
 
     def _fmt_rh(self, has_name: bool) -> str:
         return self.pointee_type._fmt_rh(True)
+
+    def fix_unresolved(self, impl, tud) -> TypeBase:
+        self.pointee_type = self.pointee_type.fix_unresolved(impl, tud)
+        return self
 
 
 
@@ -206,6 +258,9 @@ class ArrayType(TypeBase):
         ret += self.element_type._fmt_rh(False)
         return ret
 
+    def fix_unresolved(self, impl, tud) -> TypeBase:
+        self.element_type = self.element_type.fix_unresolved(impl, tud)
+        return self
 
 class ReferenceType(TypeBase):
     __slots__ = ["refed_type"] + TypeBase.__slots__
@@ -220,6 +275,10 @@ class ReferenceType(TypeBase):
     
     def _fmt_rh(self, has_name: bool) -> str:
         return self.refed_type._fmt_rh(True)
+
+    def fix_unresolved(self, impl, tud) -> TypeBase:
+        self.refed_type = self.refed_type.fix_unresolved(impl, tud)
+        return self
 
 
 class RvalueReferenceType(TypeBase):
@@ -236,3 +295,6 @@ class RvalueReferenceType(TypeBase):
     def _fmt_rh(self, has_name: bool) -> str:
         return self.refed_type._fmt_rh(True)
 
+    def fix_unresolved(self, impl, tud) -> TypeBase:
+        self.refed_type = self.refed_type.fix_unresolved(impl, tud)
+        return self
